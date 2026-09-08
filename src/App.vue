@@ -1,24 +1,59 @@
 <script setup lang="ts">
-// 第一阶段占位视图：后续阶段将替换为 Dashboard/Settings
-const techStack = ['Vue 3', 'TypeScript', 'Vite', 'Tailwind CSS', 'Element Plus']
+/**
+ * 根组件：第二阶段任务管理界面
+ * （后续阶段将替换为 layouts + router + pages 结构）
+ */
+
+import { computed } from 'vue'
+
+import { useTodoStore } from '@/stores/todoStore'
+import TodoForm from '@/components/organisms/TodoForm.vue'
+import TodoList from '@/components/organisms/TodoList.vue'
+import BaseBadge from '@/components/atoms/BaseBadge.vue'
+
+const store = useTodoStore()
+
+interface SummaryItem {
+  label: string
+  value: number
+  tone: 'info' | 'warning' | 'success'
+}
+
+const summary = computed<SummaryItem[]>(() => [
+  { label: '全部', value: store.totalCount, tone: 'info' },
+  { label: '进行中', value: store.activeCount, tone: 'warning' },
+  { label: '已完成', value: store.completedCount, tone: 'success' },
+])
+
+function handleCreate(payload: Parameters<typeof store.addTodo>[0]) {
+  store.addTodo(payload)
+}
 </script>
 
 <template>
-  <main class="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
-    <h1 class="text-3xl font-bold tracking-tight text-indigo-600 dark:text-indigo-400">
-      Vue 3 智能工作台
-    </h1>
-    <p class="text-slate-500 dark:text-slate-400">
-      第一阶段：基础建设已完成 —— 工程骨架与代码规范就绪 ✅
-    </p>
-    <ul class="flex flex-wrap justify-center gap-2">
-      <li
-        v-for="item in techStack"
-        :key="item"
-        class="rounded-full bg-slate-200 px-3 py-1 text-sm text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-      >
-        {{ item }}
-      </li>
-    </ul>
+  <main class="mx-auto min-h-screen w-full max-w-3xl px-4 py-8 sm:px-6">
+    <header class="mb-6">
+      <h1 class="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
+        🧭 Vue 3 智能工作台
+      </h1>
+      <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        第二阶段：任务管理闭环（CRUD + 筛选 + 持久化 + 撤销删除）
+      </p>
+    </header>
+
+    <!-- 概览计数 -->
+    <section class="mb-5 flex flex-wrap gap-2" aria-label="任务统计">
+      <BaseBadge v-for="item in summary" :key="item.label" :tone="item.tone" size="sm">
+        {{ item.label }} {{ item.value }}
+      </BaseBadge>
+    </section>
+
+    <!-- 新建任务 -->
+    <section class="glass mb-6 rounded-2xl p-4 shadow-sm">
+      <TodoForm @create="handleCreate" />
+    </section>
+
+    <!-- 任务列表 -->
+    <TodoList />
   </main>
 </template>
