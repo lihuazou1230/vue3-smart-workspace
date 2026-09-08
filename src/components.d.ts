@@ -17,5 +17,7 @@ declare module 'vue' {
     BaseInput: typeof import('./components/atoms/BaseInput.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SearchBar: typeof import('./components/molecules/SearchBar.vue')['default']
+    TodoItem: typeof import('./components/molecules/TodoItem.vue')['default']
   }
 }

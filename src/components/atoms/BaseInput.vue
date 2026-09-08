@@ -15,6 +15,8 @@ withDefaults(
     clearable?: boolean
     /** 无边框（内嵌场景） */
     bare?: boolean
+    /** 追加到 input 的 class（如搜索图标留白 pl-9） */
+    inputClass?: string
   }>(),
   {
     type: 'text',
@@ -22,6 +24,7 @@ withDefaults(
     disabled: false,
     clearable: false,
     bare: false,
+    inputClass: '',
   },
 )
 
@@ -48,7 +51,7 @@ function onClear() {
       :placeholder="placeholder"
       :disabled="disabled"
       class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-900"
-      :class="bare ? 'border-transparent bg-transparent focus:ring-0' : ''"
+      :class="[bare ? 'border-transparent bg-transparent focus:ring-0' : '', inputClass]"
       @keydown="onKeydown"
     />
     <button
