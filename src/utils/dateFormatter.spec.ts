@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   addDays,
+  addMonths,
   formatDueLabel,
   formatShortDate,
   isOverdue,
@@ -35,6 +36,15 @@ describe('dateFormatter', () => {
     expect(addDays('2026-09-15', -2)).toBe('2026-09-13')
     expect(addDays('2026-09-30', 1)).toBe('2026-10-01')
     expect(addDays('2026-12-31', 1)).toBe('2027-01-01')
+  })
+
+  it('addMonths 支持常规、跨年与月末钳制', () => {
+    expect(addMonths('2026-09-15', 1)).toBe('2026-10-15')
+    expect(addMonths('2026-12-15', 1)).toBe('2027-01-15')
+    expect(addMonths('2026-01-31', 1)).toBe('2026-02-28') // 2026 非闰年
+    expect(addMonths('2024-01-31', 1)).toBe('2024-02-29') // 闰年钳制
+    expect(addMonths('2026-03-31', -1)).toBe('2026-02-28')
+    expect(addMonths('2026-09-15', 12)).toBe('2027-09-15')
   })
 
   it('formatDueLabel 输出相对到期文案', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 
+import { addDays, addMonths, todayKey } from '@/utils/dateFormatter'
 import TodoForm from './TodoForm.vue'
 
 async function submitForm(wrapper: ReturnType<typeof mount>) {
@@ -8,20 +9,44 @@ async function submitForm(wrapper: ReturnType<typeof mount>) {
 }
 
 describe('TodoForm', () => {
-  it('输入标题提交，发射 create 并清空表单', async () => {
+  it('日期初始为真实当天，提交发射 create 并清空标题', async () => {
     const wrapper = mount(TodoForm)
+    const vm = wrapper.vm as unknown as { dueDate: string }
+    expect(vm.dueDate).toBe(todayKey())
+
     await wrapper.find('input[placeholder*="添加新任务"]').setValue('写周报')
     await submitForm(wrapper)
 
     const created = wrapper.emitted('create')?.[0]?.[0] as Record<string, unknown>
     expect(created.title).toBe('写周报')
     expect(created.priority).toBe('medium')
-    expect(created.dueDate).toBeUndefined()
+    expect(created.dueDate).toBe(todayKey())
 
-    // 表单清空
+    // 标题清空，日期重置为今天
     expect(
       (wrapper.find('input[placeholder*="添加新任务"]').element as HTMLInputElement).value,
     ).toBe('')
+    expect(vm.dueDate).toBe(todayKey())
+  })
+
+  it('1天/1周/1月 快捷按钮按当前日期递增', async () => {
+    const wrapper = mount(TodoForm)
+    const vm = wrapper.vm as unknown as {
+      dueDate: string
+      shiftDue: (d: number, m?: number) => void
+    }
+    const today = todayKey()
+
+    vm.shiftDue(1)
+    expect(vm.dueDate).toBe(addDays(today, 1))
+
+    vm.shiftDue(7)
+    expect(vm.dueDate).toBe(addDays(today, 8))
+
+    // 重置回今天，再测 1 月
+    vm.dueDate = today
+    vm.shiftDue(0, 1)
+    expect(vm.dueDate).toBe(addMonths(today, 1))
   })
 
   it('回车提交同样生效', async () => {

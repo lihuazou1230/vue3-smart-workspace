@@ -11,6 +11,7 @@ import type { TodoInput, TodoPriority } from '@/types/todo'
 import { DEFAULT_PRIORITY } from '@/types/todo'
 import { isValidDateKey, validateTodoTitle } from '@/utils/validation'
 import { priorityLabel } from '@/utils/priorityHelper'
+import { addDays, addMonths, todayKey } from '@/utils/dateFormatter'
 import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseInput from '@/components/atoms/BaseInput.vue'
 
@@ -20,7 +21,8 @@ const emit = defineEmits<{
 
 const title = ref('')
 const priority = ref<TodoPriority>(DEFAULT_PRIORITY)
-const dueDate = ref('')
+/** 截止日期初始为真实当天 */
+const dueDate = ref(todayKey())
 const error = ref('')
 
 const priorityOptions: TodoPriority[] = ['low', 'medium', 'high']
@@ -43,7 +45,7 @@ function submit() {
     dueDate: dueDate.value || undefined,
   })
   title.value = ''
-  dueDate.value = ''
+  dueDate.value = todayKey()
   priority.value = DEFAULT_PRIORITY
 }
 
@@ -51,8 +53,14 @@ function onTitleEnter() {
   submit()
 }
 
+/** 快捷调整截止日期：在现有日期上加 N 天/周/月 */
+function shiftDue(days: number, months = 0) {
+  const base = dueDate.value || todayKey()
+  dueDate.value = days !== 0 ? addDays(base, days) : addMonths(base, months)
+}
+
 // 暴露内部状态便于单元测试驱动非法日期等场景
-defineExpose({ title, priority, dueDate, error })
+defineExpose({ title, priority, dueDate, error, shiftDue })
 </script>
 
 <template>
@@ -96,6 +104,11 @@ defineExpose({ title, priority, dueDate, error })
           clearable
           class="!w-40"
         />
+        <span class="flex items-center gap-1">
+          <BaseButton size="sm" variant="secondary" @click="shiftDue(1)">1天</BaseButton>
+          <BaseButton size="sm" variant="secondary" @click="shiftDue(7)">1周</BaseButton>
+          <BaseButton size="sm" variant="secondary" @click="shiftDue(0, 1)">1月</BaseButton>
+        </span>
       </label>
     </div>
   </form>

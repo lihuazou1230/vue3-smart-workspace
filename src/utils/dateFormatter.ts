@@ -32,6 +32,16 @@ export function addDays(dateKey: string, days: number): string {
   return toDateKey(date)
 }
 
+/** 在 dateKey 上增加 n 个月（月末自动钳制），返回新 dateKey */
+export function addMonths(dateKey: string, months: number): string {
+  const [y, m, d] = dateKey.split('-').map(Number)
+  const target = m - 1 + months
+  const year = y + Math.floor(target / 12)
+  const month = ((target % 12) + 12) % 12
+  const lastDay = new Date(year, month + 1, 0).getDate()
+  return toDateKey(new Date(year, month, Math.min(d, lastDay)))
+}
+
 /** 相对到期标签：已逾期 / 今天 / 明天 / 后天 / MM月DD日（同今年），跨年附年份 */
 export function formatDueLabel(dateKey: string, now: Date = new Date()): string {
   if (!isValidDateKey(dateKey)) return ''
