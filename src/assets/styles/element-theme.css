@@ -1,0 +1,9 @@
+/* Element Plus 主题变量覆盖：主色/圆角与 Tailwind 联动 */
+/* 第一阶段先定义基准变量，外观自定义面板（第四阶段）会运行时改写这些变量 */
+:root {
+  --el-color-primary: #6366f1;
+}
+
+html.dark {
+  color-scheme: dark;
+}
