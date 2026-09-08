@@ -28,6 +28,8 @@ export default tseslint.config(
   {
     files: ['**/*.{ts,vue}'],
     rules: {
+      // DOM 全局由 TypeScript lib.dom 负责，禁用 no-undef
+      'no-undef': 'off',
       // 页面/根组件使用单英文单词命名（如 App、Dashboard、Settings）
       'vue/multi-word-component-names': 'off',
     },

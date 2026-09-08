@@ -11,6 +11,10 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    BaseBadge: typeof import('./components/atoms/BaseBadge.vue')['default']
+    BaseButton: typeof import('./components/atoms/BaseButton.vue')['default']
+    BaseCheckbox: typeof import('./components/atoms/BaseCheckbox.vue')['default']
+    BaseInput: typeof import('./components/atoms/BaseInput.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }
