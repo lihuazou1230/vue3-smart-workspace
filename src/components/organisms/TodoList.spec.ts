@@ -92,7 +92,7 @@ describe('TodoList', () => {
     const a = store.addTodo({ title: '任务', priority: 'medium' })
     await nextTick()
     await wrapper.find('li input[type="checkbox"]').setValue(true)
-    vi.advanceTimersByTime(600)
+    vi.advanceTimersByTime(800)
     await nextTick()
     expect(store.todos.find((t) => t.id === a.id)?.status).toBe('completed')
   })
@@ -103,7 +103,7 @@ describe('TodoList', () => {
     await nextTick()
 
     await wrapper.find('li button[aria-label="删除任务"]').trigger('click')
-    vi.advanceTimersByTime(400)
+    vi.advanceTimersByTime(700)
     await nextTick()
 
     // Toast 出现

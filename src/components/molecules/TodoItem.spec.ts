@@ -48,7 +48,7 @@ describe('TodoItem', () => {
     expect(wrapper.find('li').classes()).toContain('anim-slide-left')
     expect(wrapper.emitted('toggle')).toBeUndefined()
 
-    vi.advanceTimersByTime(600)
+    vi.advanceTimersByTime(800)
     expect(wrapper.emitted('toggle')?.[0]).toEqual(['1'])
   })
 
@@ -101,7 +101,7 @@ describe('TodoItem', () => {
     expect(wrapper.find('li').classes()).toContain('anim-slide-right')
     expect(wrapper.emitted('remove')).toBeUndefined()
 
-    vi.advanceTimersByTime(400)
+    vi.advanceTimersByTime(700)
     expect(wrapper.emitted('remove')?.[0]).toEqual(['1'])
   })
 

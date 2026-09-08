@@ -75,7 +75,7 @@ function undo() {
     revealId.value = p.todo.id
     setTimeout(() => {
       revealId.value = null
-    }, 500)
+    }, 700)
   }
   onPendingChange()
 }
@@ -94,7 +94,7 @@ watch(
         if (enterTimer) clearTimeout(enterTimer)
         enterTimer = setTimeout(() => {
           enterLeftId.value = null
-        }, 500)
+        }, 700)
         break
       }
     }

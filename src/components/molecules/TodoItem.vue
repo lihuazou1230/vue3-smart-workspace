@@ -49,7 +49,7 @@ const celebrate = ref(false)
 
 /** 从右滑入入场动画（撤销恢复） */
 const revealing = ref(false)
-const REVEAL_MS = 380
+const REVEAL_MS = 600
 function reveal() {
   revealing.value = true
   setTimeout(() => {
@@ -70,7 +70,7 @@ watch(
 
 /** 从左滑入入场动画（新建任务） */
 const entering = ref(false)
-const ENTER_MS = 380
+const ENTER_MS = 600
 function enter() {
   entering.value = true
   setTimeout(() => {
@@ -89,8 +89,8 @@ watch(
   },
 )
 
-const COMPLETE_MS = 550
-const REMOVE_MS = 350
+const COMPLETE_MS = 750
+const REMOVE_MS = 600
 
 /** 完成动画触发后延迟 emit toggle（让滑出与礼花播完再移除该项） */
 function onToggle() {
@@ -215,7 +215,7 @@ const particles = computed(() =>
 <style scoped>
 /* 完成：向左滑出 + 渐隐 */
 .anim-slide-left {
-  animation: slide-out-left 0.55s ease-in forwards;
+  animation: slide-out-left 0.75s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 @keyframes slide-out-left {
   from {
@@ -230,7 +230,7 @@ const particles = computed(() =>
 
 /* 删除：向右滑出 + 渐隐 */
 .anim-slide-right {
-  animation: slide-out-right 0.35s ease-in forwards;
+  animation: slide-out-right 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 @keyframes slide-out-right {
   from {
@@ -245,7 +245,7 @@ const particles = computed(() =>
 
 /* 撤销恢复：从右滑入 */
 .anim-reveal-right {
-  animation: reveal-right 0.38s ease-out;
+  animation: reveal-right 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 @keyframes reveal-right {
   from {
@@ -260,7 +260,7 @@ const particles = computed(() =>
 
 /* 新建任务：从左滑入 */
 .anim-enter-left {
-  animation: enter-left 0.38s ease-out;
+  animation: enter-left 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 @keyframes enter-left {
   from {
@@ -286,7 +286,7 @@ const particles = computed(() =>
   height: 8px;
   border-radius: 9999px;
   background: var(--p-color);
-  animation: burst 0.55s ease-out forwards;
+  animation: burst 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 @keyframes burst {
   from {
