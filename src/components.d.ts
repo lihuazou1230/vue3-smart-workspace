@@ -18,6 +18,8 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SearchBar: typeof import('./components/molecules/SearchBar.vue')['default']
+    TodoForm: typeof import('./components/organisms/TodoForm.vue')['default']
     TodoItem: typeof import('./components/molecules/TodoItem.vue')['default']
+    TodoList: typeof import('./components/organisms/TodoList.vue')['default']
   }
 }
