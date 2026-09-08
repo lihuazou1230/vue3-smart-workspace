@@ -49,6 +49,25 @@ describe('TodoForm', () => {
     expect(vm.dueDate).toBe(addMonths(today, 1))
   })
 
+  it('真实按钮点击也在已选值上叠加（非同今天）', async () => {
+    const wrapper = mount(TodoForm)
+    const vm = wrapper.vm as unknown as { dueDate: string }
+    // 预置一个非今天的已选值
+    const selected = '2026-09-10'
+    vm.dueDate = selected
+
+    const dayBtn = wrapper.findAll('button').find((b) => b.text() === '1天')
+    const weekBtn = wrapper.findAll('button').find((b) => b.text() === '1周')
+    expect(dayBtn).toBeTruthy()
+    expect(weekBtn).toBeTruthy()
+
+    await dayBtn!.trigger('click')
+    expect(vm.dueDate).toBe(addDays(selected, 1))
+
+    await weekBtn!.trigger('click')
+    expect(vm.dueDate).toBe(addDays(selected, 8))
+  })
+
   it('回车提交同样生效', async () => {
     const wrapper = mount(TodoForm)
     await wrapper.find('input[placeholder*="添加新任务"]').setValue('回车任务')
