@@ -54,6 +54,7 @@ describe('todoStore', () => {
   it('filteredTodos 支持状态过滤', () => {
     const store = useTodoStore()
     seedTodos()
+    store.setFilter('all')
     expect(store.filteredTodos).toHaveLength(2)
     store.setFilter('completed')
     expect(store.filteredTodos).toHaveLength(1)
@@ -159,13 +160,8 @@ describe('todoStore', () => {
     expect(store.pendingDeletes).toHaveLength(1)
   })
 
-  it('filter 持久化在下次创建 store 时恢复', async () => {
+  it('默认筛选为进行中（active）', () => {
     const store = useTodoStore()
-    seedTodos()
-    store.setFilter('active')
-    await nextTick()
-
-    const store2 = useTodoStore()
-    expect(store2.filter).toBe('active')
+    expect(store.filter).toBe('active')
   })
 })

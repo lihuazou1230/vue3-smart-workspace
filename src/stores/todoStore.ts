@@ -19,10 +19,10 @@ export const useTodoStore = defineStore('todo', () => {
   // ---- 持久化状态 ----
   /** 完整任务列表；软删除期间不落盘，真正删除（commitDelete）才写入 */
   const todos = useLocalStorage<Todo[]>(TODO_STORAGE_KEY, [])
-  /** 当前筛选视图（持久化，刷新保留） */
-  const filter = useLocalStorage<TodoFilter>(`${TODO_STORAGE_KEY}:filter`, 'all')
 
   // ---- 运行时状态（不持久化） ----
+  /** 当前筛选视图（默认进行中；运行时，进入页面即重置为进行中） */
+  const filter = ref<TodoFilter>('active')
   /** 搜索关键字 */
   const keyword = ref('')
   /** 撤销删除队列：软删除中的任务（1 分钟窗口，运行时，刷新即清空） */
