@@ -53,11 +53,16 @@ export function filterTodos(todos: Todo[], query: TodoFilterQuery): Todo[] {
 }
 
 /**
- * 任务排序：优先级高 → 低；同优先级下截止日期早 → 晚；无截止日期排在最后。
+ * 任务排序：
+ * 1. 状态：未完成(active) 在上，已完成(completed) 在下；
+ * 2. 优先级：高 → 低；
+ * 3. 截止日期：早 → 晚；无截止日期排在最后。
  * 返回新数组，不修改入参。
  */
 export function sortTodos(todos: Todo[]): Todo[] {
   return [...todos].sort((a, b) => {
+    // 状态：未完成在上，已完成在下
+    if (a.status !== b.status) return a.status === 'active' ? -1 : 1
     // 优先级：权重高者在前
     const w = PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority]
     if (w !== 0) return w

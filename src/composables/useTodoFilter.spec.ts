@@ -105,6 +105,18 @@ describe('useTodoFilter', () => {
     expect(result).toEqual(['high-early', 'high-nodue', 'med-early', 'med-late', 'low-nodue'])
   })
 
+  it('sortTodos 已完成任务排在未完成任务下方', () => {
+    const mixed: Todo[] = [
+      makeTodo({ id: 'done-high', title: '已完成-高', priority: 'high', status: 'completed' }),
+      makeTodo({ id: 'active-low', title: '未完成-低', priority: 'low' }),
+      makeTodo({ id: 'active-high', title: '未完成-高', priority: 'high' }),
+      makeTodo({ id: 'done-low', title: '已完成-低', priority: 'low', status: 'completed' }),
+    ]
+    const ids = sortTodos(mixed).map((t) => t.id)
+    // 未完成（active）整体在前，已完成（completed）整体在后；各组内再按优先级高→低
+    expect(ids).toEqual(['active-high', 'active-low', 'done-high', 'done-low'])
+  })
+
   it('sortTodos 不修改原数组', () => {
     const input = [
       makeTodo({ id: 'a', title: 'a', priority: 'low' }),
