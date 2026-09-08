@@ -53,4 +53,26 @@ describe('TodoForm', () => {
     expect(created.priority).toBe('high')
     expect(created.dueDate).toBe('2026-10-01')
   })
+
+  it('超长年份（如 232233）的日期不发射 create 且提示错误', async () => {
+    const wrapper = mount(TodoForm)
+    await wrapper.find('input[placeholder*="添加新任务"]').setValue('异常日期任务')
+    // 直接驱动内部 dueDate（经过 defineExpose 暴露），绕过 happy-dom 对 input[type=date] 的非法值清洗，
+    // 模拟真实浏览器暴露给 v-model 的畸形值
+    ;(wrapper.vm as unknown as { dueDate: string }).dueDate = '232233-10-01'
+    await submitForm(wrapper)
+
+    expect(wrapper.emitted('create')).toBeUndefined()
+    expect(wrapper.text()).toContain('截止日期格式不正确')
+  })
+
+  it('不存在的日期（如 2026-02-30）同样不发射 create', async () => {
+    const wrapper = mount(TodoForm)
+    await wrapper.find('input[placeholder*="添加新任务"]').setValue('不存在的日期')
+    ;(wrapper.vm as unknown as { dueDate: string }).dueDate = '2026-02-30'
+    await submitForm(wrapper)
+
+    expect(wrapper.emitted('create')).toBeUndefined()
+    expect(wrapper.text()).toContain('截止日期格式不正确')
+  })
 })

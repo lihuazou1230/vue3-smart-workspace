@@ -10,6 +10,7 @@ import { computed } from 'vue'
 
 import type { Todo } from '@/types/todo'
 import { formatDueLabel, isOverdue, isToday } from '@/utils/dateFormatter'
+import { isValidDateKey } from '@/utils/validation'
 import { priorityLabel, priorityTone } from '@/utils/priorityHelper'
 import BaseBadge from '@/components/atoms/BaseBadge.vue'
 import BaseCheckbox from '@/components/atoms/BaseCheckbox.vue'
@@ -27,18 +28,13 @@ const emit = defineEmits<{
 }>()
 
 const isDone = computed(() => props.todo.status === 'completed')
-const overdue = computed(
-  () =>
-    props.showDue === true &&
-    !!props.todo.dueDate &&
-    !isDone.value &&
-    isOverdue(props.todo.dueDate),
+/** 截止日期是否存在且格式合法（拦截 6 位年份等畸形值） */
+const hasValidDue = computed(
+  () => props.showDue === true && !!props.todo.dueDate && isValidDateKey(props.todo.dueDate),
 )
-const dueToday = computed(
-  () =>
-    props.showDue === true && !!props.todo.dueDate && !isDone.value && isToday(props.todo.dueDate),
-)
-const dueLabel = computed(() => (props.todo.dueDate ? formatDueLabel(props.todo.dueDate) : ''))
+const overdue = computed(() => hasValidDue.value && !isDone.value && isOverdue(props.todo.dueDate!))
+const dueToday = computed(() => hasValidDue.value && !isDone.value && isToday(props.todo.dueDate!))
+const dueLabel = computed(() => (hasValidDue.value ? formatDueLabel(props.todo.dueDate!) : ''))
 
 function onToggle() {
   emit('toggle', props.todo.id)
@@ -68,7 +64,7 @@ function onRemove() {
       >
         {{ todo.title }}
       </p>
-      <p v-if="todo.dueDate && showDue" class="mt-0.5 flex items-center gap-1 text-xs">
+      <p v-if="hasValidDue" class="mt-0.5 flex items-center gap-1 text-xs">
         <BaseBadge :tone="overdue ? 'danger' : dueToday ? 'warning' : 'info'" size="xs">
           <template v-if="dueToday">📌 今日到期</template>
           <template v-else-if="overdue">⏰ 已逾期（{{ dueLabel }}）</template>

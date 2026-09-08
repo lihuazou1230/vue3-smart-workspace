@@ -27,4 +27,11 @@ describe('validation', () => {
     expect(isValidDateKey('2026-9-5')).toBe(false)
     expect(isValidDateKey('')).toBe(false)
   })
+
+  it('isValidDateKey 拦截超长年份（6位或多位）', () => {
+    expect(isValidDateKey('232233-10-01')).toBe(false)
+    expect(isValidDateKey('62026-09-15')).toBe(false)
+    expect(isValidDateKey('123456-01-01')).toBe(false)
+    expect(isValidDateKey('202699-12-01')).toBe(false)
+  })
 })

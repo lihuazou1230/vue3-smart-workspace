@@ -50,4 +50,11 @@ describe('dateFormatter', () => {
     expect(formatShortDate('2026-09-20', NOW)).toBe('9月20日')
     expect(formatShortDate('2027-01-02', NOW)).toBe('2027年1月2日')
   })
+
+  it('畸形日期（如 6 位年份）返回空串，不渲染', () => {
+    expect(formatShortDate('232233-10-01', NOW)).toBe('')
+    expect(formatDueLabel('232233-10-01', NOW)).toBe('')
+    expect(formatShortDate('2026-02-30', NOW)).toBe('')
+    expect(formatDueLabel('abcdef', NOW)).toBe('')
+  })
 })

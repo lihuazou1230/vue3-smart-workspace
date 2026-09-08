@@ -9,7 +9,7 @@ import { ref } from 'vue'
 
 import type { TodoInput, TodoPriority } from '@/types/todo'
 import { DEFAULT_PRIORITY } from '@/types/todo'
-import { validateTodoTitle } from '@/utils/validation'
+import { isValidDateKey, validateTodoTitle } from '@/utils/validation'
 import { priorityLabel } from '@/utils/priorityHelper'
 import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseInput from '@/components/atoms/BaseInput.vue'
@@ -31,6 +31,11 @@ function submit() {
     error.value = check.message ?? '任务标题无效'
     return
   }
+  // 截止日期若非法（如年份超长/日期不存在），拦截并提示，避免 6 位年份等畸形值进入数据流
+  if (dueDate.value && !isValidDateKey(dueDate.value)) {
+    error.value = '截止日期格式不正确'
+    return
+  }
   error.value = ''
   emit('create', {
     title: title.value.trim(),
@@ -45,6 +50,9 @@ function submit() {
 function onTitleEnter() {
   submit()
 }
+
+// 暴露内部状态便于单元测试驱动非法日期等场景
+defineExpose({ title, priority, dueDate, error })
 </script>
 
 <template>

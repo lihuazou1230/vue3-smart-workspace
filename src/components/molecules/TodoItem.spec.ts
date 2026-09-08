@@ -56,6 +56,14 @@ describe('TodoItem', () => {
     expect(wrapper.text()).not.toContain('今日到期')
   })
 
+  it('畸形截止日期（6 位年份）不渲染日期徽章、不标红', () => {
+    const todo = makeTodo({ id: '1', title: '异常日期', dueDate: '232233-10-01' })
+    const wrapper = mount(TodoItem, { props: { todo, showDue: true } })
+    expect(wrapper.text()).not.toContain('今日到期')
+    expect(wrapper.text()).not.toContain('已逾期')
+    expect(wrapper.text()).not.toContain('232233')
+  })
+
   it('点击删除按钮发射 remove', async () => {
     const todo = makeTodo({ id: '1', title: '写周报' })
     const wrapper = mount(TodoItem, { props: { todo } })
