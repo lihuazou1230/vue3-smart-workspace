@@ -93,8 +93,13 @@ defineExpose({ title, priority, dueDate, error, shiftDue })
         </BaseButton>
       </fieldset>
 
-      <label class="ml-auto flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-        截止
+      <div class="ml-auto flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+        <span>截止</span>
+        <span class="flex items-center gap-1">
+          <BaseButton size="sm" variant="secondary" @click="shiftDue(1)">1天</BaseButton>
+          <BaseButton size="sm" variant="secondary" @click="shiftDue(7)">1周</BaseButton>
+          <BaseButton size="sm" variant="secondary" @click="shiftDue(0, 1)">1月</BaseButton>
+        </span>
         <el-date-picker
           v-model="dueDate"
           type="date"
@@ -104,12 +109,7 @@ defineExpose({ title, priority, dueDate, error, shiftDue })
           clearable
           class="!w-40"
         />
-        <span class="flex items-center gap-1">
-          <BaseButton size="sm" variant="secondary" @click="shiftDue(1)">1天</BaseButton>
-          <BaseButton size="sm" variant="secondary" @click="shiftDue(7)">1周</BaseButton>
-          <BaseButton size="sm" variant="secondary" @click="shiftDue(0, 1)">1月</BaseButton>
-        </span>
-      </label>
+      </div>
     </div>
   </form>
 </template>
