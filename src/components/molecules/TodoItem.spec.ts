@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 
 import type { Todo } from '@/types/todo'
@@ -102,5 +103,12 @@ describe('TodoItem', () => {
 
     vi.advanceTimersByTime(400)
     expect(wrapper.emitted('remove')?.[0]).toEqual(['1'])
+  })
+
+  it('撤销恢复（revealFromRight）播放从右滑入动画', async () => {
+    const todo = makeTodo({ id: '1', title: '恢复的任务' })
+    const wrapper = mount(TodoItem, { props: { todo, revealFromRight: true } })
+    await nextTick()
+    expect(wrapper.find('li').classes()).toContain('anim-reveal-right')
   })
 })

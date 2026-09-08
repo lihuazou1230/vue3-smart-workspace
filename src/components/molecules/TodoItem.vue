@@ -6,7 +6,7 @@
  * - 逾期标红 + 今日到期/截止日期徽章（dateFormatter）
  */
 
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import type { Todo } from '@/types/todo'
 import { formatDueLabel, isOverdue, isToday } from '@/utils/dateFormatter'
@@ -22,6 +22,8 @@ const props = defineProps<{
   showDue?: boolean
   /** 完成时是否向左滑出（进行中视图下完成任务会从列表消失；全部视图下不滑出仅礼花） */
   completeSlide?: boolean
+  /** 是否为刚撤销恢复的任务（从右滑入入场动画） */
+  revealFromRight?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -42,6 +44,27 @@ const dueLabel = computed(() => (hasValidDue.value ? formatDueLabel(props.todo.d
 type Anim = 'none' | 'complete' | 'remove'
 const anim = ref<Anim>('none')
 const celebrate = ref(false)
+
+/** 从右滑入入场动画（撤销恢复） */
+const revealing = ref(false)
+const REVEAL_MS = 380
+function reveal() {
+  revealing.value = true
+  setTimeout(() => {
+    revealing.value = false
+  }, REVEAL_MS)
+}
+
+// 撤销恢复：组件挂载时若已标记，播放一次；此后 revealFromRight 变 true 也播放
+onMounted(() => {
+  if (props.revealFromRight) reveal()
+})
+watch(
+  () => props.revealFromRight,
+  (val) => {
+    if (val) reveal()
+  },
+)
 
 const COMPLETE_MS = 550
 const REMOVE_MS = 350
@@ -104,6 +127,7 @@ const particles = computed(() =>
       overdue ? 'border-rose-300 dark:border-rose-700' : '',
       anim === 'complete' ? 'anim-slide-left' : '',
       anim === 'remove' ? 'anim-slide-right' : '',
+      revealing ? 'anim-reveal-right' : '',
     ]"
   >
     <!-- 礼花（完成时爆发） -->
@@ -192,6 +216,21 @@ const particles = computed(() =>
   to {
     transform: translateX(120%);
     opacity: 0;
+  }
+}
+
+/* 撤销恢复：从右滑入 */
+.anim-reveal-right {
+  animation: reveal-right 0.38s ease-out;
+}
+@keyframes reveal-right {
+  from {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
   }
 }
 

@@ -65,9 +65,18 @@ function remove(id: string) {
   onPendingChange()
 }
 
+/** 撤销恢复的任务 id（触发对应项从右滑入动画；短暂保持后清除） */
+const revealId = ref<string | null>(null)
+
 function undo() {
   const p = store.latestPendingDelete
-  if (p) store.undoDelete(p.todo.id)
+  if (p) {
+    store.undoDelete(p.todo.id)
+    revealId.value = p.todo.id
+    setTimeout(() => {
+      revealId.value = null
+    }, 500)
+  }
   onPendingChange()
 }
 </script>
@@ -118,6 +127,7 @@ function undo() {
         :todo="todo"
         show-due
         :complete-slide="store.filter === 'active'"
+        :reveal-from-right="todo.id === revealId"
         @toggle="toggle"
         @remove="remove"
       />
