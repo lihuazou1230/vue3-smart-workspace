@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
@@ -17,6 +17,10 @@ function mountWithStore() {
 describe('TodoList', () => {
   beforeEach(() => {
     localStorage.clear()
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('渲染 store 中的任务', async () => {
@@ -80,6 +84,7 @@ describe('TodoList', () => {
     const a = store.addTodo({ title: '任务', priority: 'medium' })
     await nextTick()
     await wrapper.find('li input[type="checkbox"]').setValue(true)
+    vi.advanceTimersByTime(600)
     await nextTick()
     expect(store.todos.find((t) => t.id === a.id)?.status).toBe('completed')
   })
@@ -90,6 +95,7 @@ describe('TodoList', () => {
     await nextTick()
 
     await wrapper.find('li button[aria-label="删除任务"]').trigger('click')
+    vi.advanceTimersByTime(400)
     await nextTick()
 
     // Toast 出现

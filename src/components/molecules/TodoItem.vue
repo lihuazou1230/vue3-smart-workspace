@@ -1,12 +1,12 @@
 <script setup lang="ts">
 /**
  * 分子组件：单个任务行
- * - 勾选切换完成状态
+ * - 勾选完成：向左滑出 + 礼花，再通知父级（toggle）
+ * - 删除：向右滑出，再通知父级（remove）
  * - 逾期标红 + 今日到期/截止日期徽章（dateFormatter）
- * - 删除发射 remove，由父级（TodoList）处理软删除与撤销
  */
 
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 import type { Todo } from '@/types/todo'
 import { formatDueLabel, isOverdue, isToday } from '@/utils/dateFormatter'
@@ -36,20 +36,80 @@ const overdue = computed(() => hasValidDue.value && !isDone.value && isOverdue(p
 const dueToday = computed(() => hasValidDue.value && !isDone.value && isToday(props.todo.dueDate!))
 const dueLabel = computed(() => (hasValidDue.value ? formatDueLabel(props.todo.dueDate!) : ''))
 
+/** 动画状态：none | complete（左滑+礼花）| remove（右滑） */
+type Anim = 'none' | 'complete' | 'remove'
+const anim = ref<Anim>('none')
+const celebrate = ref(false)
+
+const COMPLETE_MS = 550
+const REMOVE_MS = 350
+
+/** 完成动画触发后延迟 emit toggle（让滑出与礼花播完再移除该项） */
 function onToggle() {
-  emit('toggle', props.todo.id)
+  if (anim.value !== 'none') return
+  // 只有 未完成 -> 完成 才触发左滑+礼花；已完成取消勾选直接恢复
+  if (!isDone.value) {
+    anim.value = 'complete'
+    celebrate.value = true
+    setTimeout(() => {
+      emit('toggle', props.todo.id)
+      anim.value = 'none'
+      celebrate.value = false
+    }, COMPLETE_MS)
+  } else {
+    emit('toggle', props.todo.id)
+  }
 }
 
+/** 删除动画触发后延迟 emit remove */
 function onRemove() {
-  emit('remove', props.todo.id)
+  if (anim.value !== 'none') return
+  anim.value = 'remove'
+  setTimeout(() => {
+    emit('remove', props.todo.id)
+    anim.value = 'none'
+  }, REMOVE_MS)
 }
+
+// 礼花粒子参数
+const colors = ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#a855f7', '#ec4899']
+const particles = computed(() =>
+  Array.from({ length: 18 }, (_, i) => {
+    const angle = (i / 18) * Math.PI * 2
+    return {
+      color: colors[i % colors.length],
+      tx: `${Math.cos(angle) * (60 + (i % 4) * 14)}px`,
+      ty: `${Math.sin(angle) * (46 + (i % 3) * 12)}px`,
+      delay: `${(i % 5) * 20}ms`,
+    }
+  }),
+)
 </script>
 
 <template>
   <li
-    class="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition-colors hover:border-indigo-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-indigo-600"
-    :class="overdue ? 'border-rose-300 dark:border-rose-700' : ''"
+    class="group relative flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition-colors hover:border-indigo-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-indigo-600"
+    :class="[
+      overdue ? 'border-rose-300 dark:border-rose-700' : '',
+      anim === 'complete' ? 'anim-slide-left' : '',
+      anim === 'remove' ? 'anim-slide-right' : '',
+    ]"
   >
+    <!-- 礼花（完成时爆发） -->
+    <span v-if="celebrate" class="popper" aria-hidden="true">
+      <span
+        v-for="(p, i) in particles"
+        :key="i"
+        class="particle"
+        :style="{
+          '--p-color': p.color,
+          '--p-tx': p.tx,
+          '--p-ty': p.ty,
+          animationDelay: p.delay,
+        }"
+      />
+    </span>
+
     <BaseCheckbox :model-value="isDone" aria-label="切换完成状态" @change="onToggle" />
 
     <div class="min-w-0 flex-1">
@@ -92,3 +152,61 @@ function onRemove() {
     </BaseButton>
   </li>
 </template>
+
+<style scoped>
+/* 完成：向左滑出 + 渐隐 */
+.anim-slide-left {
+  animation: slide-out-left 0.55s ease-in forwards;
+}
+@keyframes slide-out-left {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+}
+
+/* 删除：向右滑出 + 渐隐 */
+.anim-slide-right {
+  animation: slide-out-right 0.35s ease-in forwards;
+}
+@keyframes slide-out-right {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
+/* 礼花容器与粒子 */
+.popper {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+}
+.particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--p-color);
+  animation: burst 0.55s ease-out forwards;
+}
+@keyframes burst {
+  from {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--p-tx), var(--p-ty)) scale(0.2);
+    opacity: 0;
+  }
+}
+</style>

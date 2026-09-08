@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 
 import type { Todo } from '@/types/todo'
@@ -19,13 +19,32 @@ function makeTodo(partial: Partial<Todo> & { id: string; title: string }): Todo 
 describe('TodoItem', () => {
   const today = todayKey()
 
-  it('渲染标题与优先级，勾选发射 toggle', async () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('渲染标题与优先级，勾选（未完成→完成）先左滑后发射 toggle', async () => {
     const todo = makeTodo({ id: '1', title: '写周报', priority: 'high' })
     const wrapper = mount(TodoItem, { props: { todo, showDue: true } })
     expect(wrapper.text()).toContain('写周报')
     expect(wrapper.text()).toContain('高优先级')
 
     await wrapper.find('input[type="checkbox"]').setValue(true)
+    // 动画期间：进入左滑 + 礼花，尚未 emit
+    expect(wrapper.find('li').classes()).toContain('anim-slide-left')
+    expect(wrapper.emitted('toggle')).toBeUndefined()
+
+    vi.advanceTimersByTime(600)
+    expect(wrapper.emitted('toggle')?.[0]).toEqual(['1'])
+  })
+
+  it('已完成任务取消勾选，直接通知 toggle（无左滑动画）', async () => {
+    const todo = makeTodo({ id: '1', title: '健身', status: 'completed' })
+    const wrapper = mount(TodoItem, { props: { todo } })
+    await wrapper.find('input[type="checkbox"]').setValue(false)
     expect(wrapper.emitted('toggle')?.[0]).toEqual(['1'])
   })
 
@@ -64,10 +83,14 @@ describe('TodoItem', () => {
     expect(wrapper.text()).not.toContain('232233')
   })
 
-  it('点击删除按钮发射 remove', async () => {
+  it('点击删除按钮先右滑后发射 remove', async () => {
     const todo = makeTodo({ id: '1', title: '写周报' })
     const wrapper = mount(TodoItem, { props: { todo } })
     await wrapper.find('button[aria-label="删除任务"]').trigger('click')
+    expect(wrapper.find('li').classes()).toContain('anim-slide-right')
+    expect(wrapper.emitted('remove')).toBeUndefined()
+
+    vi.advanceTimersByTime(400)
     expect(wrapper.emitted('remove')?.[0]).toEqual(['1'])
   })
 })
