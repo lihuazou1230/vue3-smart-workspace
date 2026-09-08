@@ -8,8 +8,10 @@
 
 import { computed, onUnmounted, ref, watch } from 'vue'
 
-import type { TodoFilter } from '@/types/todo'
+import type { PriorityFilter, TodoFilter } from '@/types/todo'
 import { useTodoStore } from '@/stores/todoStore'
+import { PRIORITY_ORDER } from '@/utils/priorityHelper'
+import { priorityLabel } from '@/utils/priorityHelper'
 import SearchBar from '@/components/molecules/SearchBar.vue'
 import TodoItem from '@/components/molecules/TodoItem.vue'
 import BaseButton from '@/components/atoms/BaseButton.vue'
@@ -21,6 +23,11 @@ const FILTER_TABS: Array<{ key: TodoFilter; label: string }> = [
   { key: 'active', label: '进行中' },
   { key: 'completed', label: '已完成' },
   { key: 'today', label: '今日' },
+]
+
+const PRIORITY_TABS: Array<{ key: PriorityFilter; label: string }> = [
+  { key: 'all', label: '全部' },
+  ...PRIORITY_ORDER.map((p) => ({ key: p as PriorityFilter, label: priorityLabel(p) })),
 ]
 
 const filterLabel = computed(() => FILTER_TABS.find((t) => t.key === store.filter)?.label ?? '全部')
@@ -120,6 +127,22 @@ watch(
       </div>
       <div class="w-56">
         <SearchBar v-model="store.keyword" />
+      </div>
+    </div>
+
+    <!-- 优先级筛选 -->
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-xs text-slate-400 dark:text-slate-500">优先级</span>
+      <div class="flex gap-1" role="group" aria-label="优先级筛选">
+        <BaseButton
+          v-for="t in PRIORITY_TABS"
+          :key="t.key"
+          size="sm"
+          :variant="store.priority === t.key ? 'primary' : 'secondary'"
+          @click="store.setPriority(t.key)"
+        >
+          {{ t.label }}
+        </BaseButton>
       </div>
     </div>
 

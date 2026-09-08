@@ -4,7 +4,7 @@ import { defineStore } from 'pinia'
 
 import { useLocalStorage } from '@/composables/useLocalStorage'
 import { filterTodos, sortTodos } from '@/composables/useTodoFilter'
-import type { PendingDelete, Todo, TodoFilter, TodoInput } from '@/types/todo'
+import type { PendingDelete, PriorityFilter, Todo, TodoFilter, TodoInput } from '@/types/todo'
 import { UNDO_DELETE_TIMEOUT } from '@/types/todo'
 
 export const TODO_STORAGE_KEY = 'smart-workspace:todos'
@@ -23,6 +23,8 @@ export const useTodoStore = defineStore('todo', () => {
   // ---- 运行时状态（不持久化） ----
   /** 当前筛选视图（默认进行中；运行时，进入页面即重置为进行中） */
   const filter = ref<TodoFilter>('active')
+  /** 优先级筛选（默认全部） */
+  const priority = ref<PriorityFilter>('all')
   /** 搜索关键字 */
   const keyword = ref('')
   /** 撤销删除队列：软删除中的任务（1 分钟窗口，运行时，刷新即清空） */
@@ -39,7 +41,13 @@ export const useTodoStore = defineStore('todo', () => {
 
   /** 过滤 + 搜索后的展示列表（按优先级高→低、截止日期早→晚排序） */
   const filteredTodos = computed<Todo[]>(() =>
-    sortTodos(filterTodos(visibleTodos.value, { filter: filter.value, keyword: keyword.value })),
+    sortTodos(
+      filterTodos(visibleTodos.value, {
+        filter: filter.value,
+        keyword: keyword.value,
+        priority: priority.value,
+      }),
+    ),
   )
 
   const totalCount = computed(() => visibleTodos.value.length)
@@ -128,6 +136,10 @@ export const useTodoStore = defineStore('todo', () => {
     filter.value = next
   }
 
+  function setPriority(next: PriorityFilter) {
+    priority.value = next
+  }
+
   function setKeyword(next: string) {
     keyword.value = next
   }
@@ -136,6 +148,7 @@ export const useTodoStore = defineStore('todo', () => {
     // 状态
     todos,
     filter,
+    priority,
     keyword,
     pendingDeletes,
     latestPendingDelete,
@@ -154,6 +167,7 @@ export const useTodoStore = defineStore('todo', () => {
     commitDelete,
     flushPendingDeletes,
     setFilter,
+    setPriority,
     setKeyword,
   }
 })

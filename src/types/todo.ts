@@ -9,6 +9,9 @@ export type TodoPriority = 'low' | 'medium' | 'high'
 /** 列表筛选条件 */
 export type TodoFilter = 'all' | 'active' | 'completed' | 'today'
 
+/** 优先级筛选条件（all 表示不按优先级过滤） */
+export type PriorityFilter = TodoPriority | 'all'
+
 /** 子任务 */
 export interface Subtask {
   id: string

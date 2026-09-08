@@ -4,6 +4,7 @@ import type { Todo } from '@/types/todo'
 import {
   countActive,
   countCompleted,
+  filterByPriority,
   filterByStatus,
   filterTodos,
   matchesKeyword,
@@ -52,6 +53,20 @@ describe('useTodoFilter', () => {
   it('filterTodos 组合状态与关键字', () => {
     const result = filterTodos(list, { filter: 'all', keyword: 'vue' })
     expect(result.map((t) => t.id)).toEqual(['3'])
+  })
+
+  it('filterByPriority 按优先级过滤，all 不过滤', () => {
+    expect(filterByPriority(list, 'high').map((t) => t.id)).toEqual(['1'])
+    expect(filterByPriority(list, 'medium').map((t) => t.id)).toEqual(['2', '3'])
+    expect(filterByPriority(list, 'all')).toHaveLength(3)
+    expect(filterByPriority(list, undefined)).toHaveLength(3)
+  })
+
+  it('filterTodos 组合状态 + 优先级 + 关键字', () => {
+    const result = filterTodos(list, { filter: 'all', keyword: '', priority: 'medium' })
+    expect(result.map((t) => t.id)).toEqual(['2', '3'])
+    const activeHigh = filterTodos(list, { filter: 'active', keyword: '', priority: 'high' })
+    expect(activeHigh.map((t) => t.id)).toEqual(['1'])
   })
 
   it('countActive / countCompleted', () => {

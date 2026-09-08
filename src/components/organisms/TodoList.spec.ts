@@ -87,6 +87,25 @@ describe('TodoList', () => {
     expect(liText).not.toContain('写周报')
   })
 
+  it('点击优先级按钮过滤任务', async () => {
+    const { wrapper, store } = mountWithStore()
+    store.addTodo({ title: '高优甲', priority: 'high' })
+    store.addTodo({ title: '低优乙', priority: 'low' })
+    await nextTick()
+
+    const high = wrapper.findAll('button').find((btn) => btn.text() === '高')
+    expect(high).toBeTruthy()
+    await high!.trigger('click')
+    await nextTick()
+
+    const liText = wrapper
+      .findAll('li')
+      .map((li) => li.text())
+      .join(' | ')
+    expect(liText).toContain('高优甲')
+    expect(liText).not.toContain('低优乙')
+  })
+
   it('勾选任务调用 toggleComplete', async () => {
     const { wrapper, store } = mountWithStore()
     const a = store.addTodo({ title: '任务', priority: 'medium' })

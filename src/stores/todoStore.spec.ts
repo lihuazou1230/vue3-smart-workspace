@@ -69,6 +69,20 @@ describe('todoStore', () => {
     expect(store.filteredTodos[0].title).toBe('写周报')
   })
 
+  it('setPriority 按优先级过滤', () => {
+    const store = useTodoStore()
+    store.addTodo({ title: '高优', priority: 'high' })
+    store.addTodo({ title: '低优', priority: 'low' })
+    store.addTodo({ title: '中优', priority: 'medium' })
+    expect(store.filteredTodos).toHaveLength(3)
+
+    store.setPriority('high')
+    expect(store.filteredTodos.map((t) => t.title)).toEqual(['高优'])
+
+    store.setPriority('all')
+    expect(store.filteredTodos).toHaveLength(3)
+  })
+
   it('计数 getters 正确', () => {
     const store = useTodoStore()
     seedTodos()
