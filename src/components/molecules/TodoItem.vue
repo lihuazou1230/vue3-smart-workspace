@@ -20,6 +20,8 @@ const props = defineProps<{
   todo: Todo
   /** 是否展示截止日期徽章与逾期标红 */
   showDue?: boolean
+  /** 完成时是否向左滑出（进行中视图下完成任务会从列表消失；全部视图下不滑出仅礼花） */
+  completeSlide?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -47,15 +49,24 @@ const REMOVE_MS = 350
 /** 完成动画触发后延迟 emit toggle（让滑出与礼花播完再移除该项） */
 function onToggle() {
   if (anim.value !== 'none') return
-  // 只有 未完成 -> 完成 才触发左滑+礼花；已完成取消勾选直接恢复
+  // 只有 未完成 -> 完成 才触发礼花（+ 进行中视图左滑）；已完成取消勾选直接恢复
   if (!isDone.value) {
-    anim.value = 'complete'
     celebrate.value = true
-    setTimeout(() => {
+    if (props.completeSlide) {
+      // 进行中/需移除的场景：左滑 + 礼花，播完再 emit
+      anim.value = 'complete'
+      setTimeout(() => {
+        emit('toggle', props.todo.id)
+        anim.value = 'none'
+        celebrate.value = false
+      }, COMPLETE_MS)
+    } else {
+      // 全部视图：任务不消失，仅礼花，立即 emit，礼花自行消退
       emit('toggle', props.todo.id)
-      anim.value = 'none'
-      celebrate.value = false
-    }, COMPLETE_MS)
+      setTimeout(() => {
+        celebrate.value = false
+      }, COMPLETE_MS)
+    }
   } else {
     emit('toggle', props.todo.id)
   }

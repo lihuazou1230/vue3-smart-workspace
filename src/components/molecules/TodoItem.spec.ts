@@ -26,14 +26,24 @@ describe('TodoItem', () => {
     vi.useRealTimers()
   })
 
-  it('渲染标题与优先级，勾选（未完成→完成）先左滑后发射 toggle', async () => {
+  it('渲染标题与优先级，勾选（未完成→完成）立即发射 toggle 且不左滑', async () => {
     const todo = makeTodo({ id: '1', title: '写周报', priority: 'high' })
     const wrapper = mount(TodoItem, { props: { todo, showDue: true } })
     expect(wrapper.text()).toContain('写周报')
     expect(wrapper.text()).toContain('高优先级')
 
     await wrapper.find('input[type="checkbox"]').setValue(true)
-    // 动画期间：进入左滑 + 礼花，尚未 emit
+    // 全部视图语义：仅礼花、立即 emit、无左滑
+    expect(wrapper.emitted('toggle')?.[0]).toEqual(['1'])
+    expect(wrapper.find('li').classes()).not.toContain('anim-slide-left')
+    expect(wrapper.find('.particle').exists()).toBe(true)
+  })
+
+  it('completeSlide=true 时（进行中视图）左滑后发射 toggle', async () => {
+    const todo = makeTodo({ id: '1', title: '写周报', priority: 'high' })
+    const wrapper = mount(TodoItem, { props: { todo, completeSlide: true } })
+
+    await wrapper.find('input[type="checkbox"]').setValue(true)
     expect(wrapper.find('li').classes()).toContain('anim-slide-left')
     expect(wrapper.emitted('toggle')).toBeUndefined()
 

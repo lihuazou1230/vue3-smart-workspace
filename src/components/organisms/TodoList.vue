@@ -117,6 +117,7 @@ function undo() {
         :key="todo.id"
         :todo="todo"
         show-due
+        :complete-slide="store.filter === 'active'"
         @toggle="toggle"
         @remove="remove"
       />
