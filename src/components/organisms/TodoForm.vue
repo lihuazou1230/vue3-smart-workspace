@@ -93,7 +93,7 @@ defineExpose({ title, priority, dueDate, error, shiftDue })
         </BaseButton>
       </fieldset>
 
-      <label class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+      <label class="ml-auto flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
         截止
         <el-date-picker
           v-model="dueDate"
