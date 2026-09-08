@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { useLocalStorage } from '@/composables/useLocalStorage'
-import { filterTodos } from '@/composables/useTodoFilter'
+import { filterTodos, sortTodos } from '@/composables/useTodoFilter'
 import type { PendingDelete, Todo, TodoFilter, TodoInput } from '@/types/todo'
 import { UNDO_DELETE_TIMEOUT } from '@/types/todo'
 
@@ -37,9 +37,9 @@ export const useTodoStore = defineStore('todo', () => {
     return todos.value.filter((t) => !pendingIds.has(t.id))
   })
 
-  /** 过滤 + 搜索后的展示列表 */
+  /** 过滤 + 搜索后的展示列表（按优先级高→低、截止日期早→晚排序） */
   const filteredTodos = computed<Todo[]>(() =>
-    filterTodos(visibleTodos.value, { filter: filter.value, keyword: keyword.value }),
+    sortTodos(filterTodos(visibleTodos.value, { filter: filter.value, keyword: keyword.value })),
   )
 
   const totalCount = computed(() => visibleTodos.value.length)

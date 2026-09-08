@@ -76,6 +76,16 @@ describe('todoStore', () => {
     expect(store.completedCount).toBe(1)
   })
 
+  it('filteredTodos 按优先级高→低、同优先级截止早→晚排序', () => {
+    const store = useTodoStore()
+    store.addTodo({ title: '低-无日期', priority: 'low' })
+    store.addTodo({ title: '高-早', priority: 'high', dueDate: '2026-09-05' })
+    store.addTodo({ title: '中-早', priority: 'medium', dueDate: '2026-09-10' })
+    store.addTodo({ title: '高-晚', priority: 'high', dueDate: '2026-09-20' })
+    const titles = store.filteredTodos.map((t) => t.title)
+    expect(titles).toEqual(['高-早', '高-晚', '中-早', '低-无日期'])
+  })
+
   it('removeTodo 软删除：进入撤销队列，立即可撤销', () => {
     const store = useTodoStore()
     const { a, b } = seedTodos()

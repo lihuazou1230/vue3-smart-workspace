@@ -7,6 +7,7 @@ import {
   filterByStatus,
   filterTodos,
   matchesKeyword,
+  sortTodos,
 } from './useTodoFilter'
 
 function makeTodo(partial: Partial<Todo> & { id: string; title: string }): Todo {
@@ -56,5 +57,27 @@ describe('useTodoFilter', () => {
   it('countActive / countCompleted', () => {
     expect(countActive(list)).toBe(2)
     expect(countCompleted(list)).toBe(1)
+  })
+
+  it('sortTodos 优先级高→低，同优先级截止早→晚，无日期在最后', () => {
+    const mixed: Todo[] = [
+      makeTodo({ id: 'low-nodue', title: '低-无日期', priority: 'low' }),
+      makeTodo({ id: 'med-late', title: '中-晚', priority: 'medium', dueDate: '2026-09-30' }),
+      makeTodo({ id: 'high-nodue', title: '高-无日期', priority: 'high' }),
+      makeTodo({ id: 'med-early', title: '中-早', priority: 'medium', dueDate: '2026-09-10' }),
+      makeTodo({ id: 'high-early', title: '高-早', priority: 'high', dueDate: '2026-09-05' }),
+    ]
+    const result = sortTodos(mixed).map((t) => t.id)
+    expect(result).toEqual(['high-early', 'high-nodue', 'med-early', 'med-late', 'low-nodue'])
+  })
+
+  it('sortTodos 不修改原数组', () => {
+    const input = [
+      makeTodo({ id: 'a', title: 'a', priority: 'low' }),
+      makeTodo({ id: 'b', title: 'b', priority: 'high' }),
+    ]
+    const before = input.map((t) => t.id)
+    sortTodos(input)
+    expect(input.map((t) => t.id)).toEqual(before)
   })
 })

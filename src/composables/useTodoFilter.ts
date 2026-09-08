@@ -1,5 +1,6 @@
 import type { Todo, TodoFilter, TodoStatus } from '@/types/todo'
 import { todayKey } from '@/utils/dateFormatter'
+import { PRIORITY_WEIGHT } from '@/utils/priorityHelper'
 
 export interface TodoFilterQuery {
   filter: TodoFilter
@@ -34,6 +35,24 @@ export function matchesKeyword(todo: Todo, keyword: string): boolean {
 export function filterTodos(todos: Todo[], query: TodoFilterQuery): Todo[] {
   const { filter, keyword, today } = query
   return filterByStatus(todos, filter, today).filter((t) => matchesKeyword(t, keyword))
+}
+
+/**
+ * 任务排序：优先级高 → 低；同优先级下截止日期早 → 晚；无截止日期排在最后。
+ * 返回新数组，不修改入参。
+ */
+export function sortTodos(todos: Todo[]): Todo[] {
+  return [...todos].sort((a, b) => {
+    // 优先级：权重高者在前
+    const w = PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority]
+    if (w !== 0) return w
+    // 截止日期：都有日期则早者在前
+    if (a.dueDate && b.dueDate) return a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0
+    // 有日期优先于无日期
+    if (a.dueDate && !b.dueDate) return -1
+    if (!a.dueDate && b.dueDate) return 1
+    return 0
+  })
 }
 
 /** 未完成数量 */
