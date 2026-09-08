@@ -87,7 +87,15 @@ defineExpose({ title, priority, dueDate, error })
 
       <label class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
         截止
-        <BaseInput v-model="dueDate" type="date" input-class="w-36" />
+        <el-date-picker
+          v-model="dueDate"
+          type="date"
+          value-format="YYYY-MM-DD"
+          format="YYYY-MM-DD"
+          placeholder="选择日期"
+          clearable
+          class="!w-40"
+        />
       </label>
     </div>
   </form>

@@ -46,7 +46,8 @@ describe('TodoForm', () => {
     expect(highBtn).toBeTruthy()
     await highBtn!.trigger('click')
 
-    await wrapper.find('input[type="date"]').setValue('2026-10-01')
+    // 通过暴露的 state 驱动截止日期（el-date-picker 在 happy-dom 中交互复杂，直接测逻辑）
+    ;(wrapper.vm as unknown as { dueDate: string }).dueDate = '2026-10-01'
     await submitForm(wrapper)
 
     const created = wrapper.emitted('create')?.[0]?.[0] as Record<string, unknown>
@@ -57,8 +58,6 @@ describe('TodoForm', () => {
   it('超长年份（如 232233）的日期不发射 create 且提示错误', async () => {
     const wrapper = mount(TodoForm)
     await wrapper.find('input[placeholder*="添加新任务"]').setValue('异常日期任务')
-    // 直接驱动内部 dueDate（经过 defineExpose 暴露），绕过 happy-dom 对 input[type=date] 的非法值清洗，
-    // 模拟真实浏览器暴露给 v-model 的畸形值
     ;(wrapper.vm as unknown as { dueDate: string }).dueDate = '232233-10-01'
     await submitForm(wrapper)
 

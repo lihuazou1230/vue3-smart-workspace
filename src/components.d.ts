@@ -15,6 +15,7 @@ declare module 'vue' {
     BaseButton: typeof import('./components/atoms/BaseButton.vue')['default']
     BaseCheckbox: typeof import('./components/atoms/BaseCheckbox.vue')['default']
     BaseInput: typeof import('./components/atoms/BaseInput.vue')['default']
+    ElDatePicker: typeof import('element-plus/es')['ElDatePicker']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SearchBar: typeof import('./components/molecules/SearchBar.vue')['default']
