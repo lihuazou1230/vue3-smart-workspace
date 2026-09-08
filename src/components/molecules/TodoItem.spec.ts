@@ -59,6 +59,27 @@ describe('TodoItem', () => {
     expect(wrapper.emitted('toggle')?.[0]).toEqual(['1'])
   })
 
+  it('行尾圆形按钮：未完成任务点击左滑+礼花后完成', async () => {
+    const todo = makeTodo({ id: '1', title: '写周报', priority: 'high' })
+    const wrapper = mount(TodoItem, { props: { todo, completeSlide: true } })
+    const btn = wrapper.find('button[aria-label="标记为已完成"]')
+    expect(btn.exists()).toBe(true)
+    await btn.trigger('click')
+    expect(wrapper.find('li').classes()).toContain('anim-slide-left')
+    expect(wrapper.emitted('toggle')).toBeUndefined()
+    vi.advanceTimersByTime(800)
+    expect(wrapper.emitted('toggle')?.[0]).toEqual(['1'])
+  })
+
+  it('行尾圆形按钮：已完成任务点击取消完成，直接通知 toggle', async () => {
+    const todo = makeTodo({ id: '1', title: '健身', status: 'completed' })
+    const wrapper = mount(TodoItem, { props: { todo } })
+    const btn = wrapper.find('button[aria-label="标记为未完成"]')
+    expect(btn.exists()).toBe(true)
+    await btn.trigger('click')
+    expect(wrapper.emitted('toggle')?.[0]).toEqual(['1'])
+  })
+
   it('完成态显示删除线文案', () => {
     const todo = makeTodo({ id: '1', title: '健身', status: 'completed' })
     const wrapper = mount(TodoItem, { props: { todo } })

@@ -196,6 +196,29 @@ const particles = computed(() =>
       {{ priorityLabel(todo.priority) }}优先级
     </BaseBadge>
 
+    <!-- 行尾圆形完成按钮：未完成空心圆，已完成实心对勾 -->
+    <button
+      type="button"
+      class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
+      :class="
+        isDone
+          ? 'border-emerald-500 bg-emerald-500 text-white'
+          : 'border-slate-300 text-transparent hover:border-emerald-400 hover:text-emerald-500 dark:border-slate-600'
+      "
+      :aria-label="isDone ? '标记为未完成' : '标记为已完成'"
+      @click="onToggle"
+    >
+      <svg class="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path
+          d="M3.5 8.5l3 3 6-7"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </button>
+
     <BaseButton
       variant="ghost"
       size="sm"
