@@ -69,18 +69,36 @@ describe('todoStore', () => {
     expect(store.filteredTodos[0].title).toBe('写周报')
   })
 
-  it('setPriority 按优先级过滤', () => {
+  it('togglePriority 多选按优先级过滤，三者全选自动清空', () => {
     const store = useTodoStore()
     store.addTodo({ title: '高优', priority: 'high' })
     store.addTodo({ title: '低优', priority: 'low' })
     store.addTodo({ title: '中优', priority: 'medium' })
     expect(store.filteredTodos).toHaveLength(3)
 
-    store.setPriority('high')
+    store.togglePriority('high')
+    expect(store.priority).toEqual(['high'])
     expect(store.filteredTodos.map((t) => t.title)).toEqual(['高优'])
 
-    store.setPriority('all')
+    // 多选：再加 low，同时命中 high/low
+    store.togglePriority('low')
+    expect(store.priority).toEqual(['high', 'low'])
+    expect(store.filteredTodos).toHaveLength(2)
+
+    // 再选中 medium -> 三者全选 -> 自动清空（全部）
+    store.togglePriority('medium')
+    expect(store.priority).toEqual([])
     expect(store.filteredTodos).toHaveLength(3)
+
+    // 先选中再取消
+    store.togglePriority('high')
+    store.togglePriority('high')
+    expect(store.priority).toEqual([])
+
+    // clearPriority
+    store.togglePriority('medium')
+    store.clearPriority()
+    expect(store.priority).toEqual([])
   })
 
   it('计数 getters 正确', () => {

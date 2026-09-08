@@ -8,7 +8,7 @@
 
 import { computed, onUnmounted, ref, watch } from 'vue'
 
-import type { PriorityFilter, TodoFilter } from '@/types/todo'
+import type { TodoFilter, TodoPriority } from '@/types/todo'
 import { useTodoStore } from '@/stores/todoStore'
 import { PRIORITY_ORDER } from '@/utils/priorityHelper'
 import { priorityLabel } from '@/utils/priorityHelper'
@@ -25,10 +25,10 @@ const FILTER_TABS: Array<{ key: TodoFilter; label: string }> = [
   { key: 'today', label: '今日' },
 ]
 
-const PRIORITY_TABS: Array<{ key: PriorityFilter; label: string }> = [
-  { key: 'all', label: '全部' },
-  ...PRIORITY_ORDER.map((p) => ({ key: p as PriorityFilter, label: priorityLabel(p) })),
-]
+const PRIORITY_TABS: Array<{ key: TodoPriority; label: string }> = PRIORITY_ORDER.map((p) => ({
+  key: p,
+  label: priorityLabel(p),
+}))
 
 const filterLabel = computed(() => FILTER_TABS.find((t) => t.key === store.filter)?.label ?? '全部')
 
@@ -130,16 +130,23 @@ watch(
       </div>
     </div>
 
-    <!-- 优先级筛选 -->
+    <!-- 优先级筛选（多选：高/中/低可同时选中；三者全选自动回到全部） -->
     <div class="flex flex-wrap items-center gap-2">
       <span class="text-xs text-slate-400 dark:text-slate-500">优先级</span>
       <div class="flex gap-1" role="group" aria-label="优先级筛选">
         <BaseButton
+          size="sm"
+          :variant="store.priority.length === 0 ? 'primary' : 'secondary'"
+          @click="store.clearPriority()"
+        >
+          全部
+        </BaseButton>
+        <BaseButton
           v-for="t in PRIORITY_TABS"
           :key="t.key"
           size="sm"
-          :variant="store.priority === t.key ? 'primary' : 'secondary'"
-          @click="store.setPriority(t.key)"
+          :variant="store.priority.includes(t.key) ? 'primary' : 'secondary'"
+          @click="store.togglePriority(t.key)"
         >
           {{ t.label }}
         </BaseButton>

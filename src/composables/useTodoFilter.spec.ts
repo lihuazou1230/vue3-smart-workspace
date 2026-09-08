@@ -55,18 +55,24 @@ describe('useTodoFilter', () => {
     expect(result.map((t) => t.id)).toEqual(['3'])
   })
 
-  it('filterByPriority 按优先级过滤，all 不过滤', () => {
-    expect(filterByPriority(list, 'high').map((t) => t.id)).toEqual(['1'])
-    expect(filterByPriority(list, 'medium').map((t) => t.id)).toEqual(['2', '3'])
-    expect(filterByPriority(list, 'all')).toHaveLength(3)
+  it('filterByPriority 按优先级多选过滤，空数组不过滤', () => {
+    expect(filterByPriority(list, ['high']).map((t) => t.id)).toEqual(['1'])
+    // 多选：命中任一即保留
+    expect(filterByPriority(list, ['medium', 'low']).map((t) => t.id)).toEqual(['2', '3'])
+    expect(filterByPriority(list, ['high', 'low']).map((t) => t.id)).toEqual(['1'])
+    expect(filterByPriority(list, [])).toHaveLength(3)
     expect(filterByPriority(list, undefined)).toHaveLength(3)
   })
 
-  it('filterTodos 组合状态 + 优先级 + 关键字', () => {
-    const result = filterTodos(list, { filter: 'all', keyword: '', priority: 'medium' })
-    expect(result.map((t) => t.id)).toEqual(['2', '3'])
-    const activeHigh = filterTodos(list, { filter: 'active', keyword: '', priority: 'high' })
-    expect(activeHigh.map((t) => t.id)).toEqual(['1'])
+  it('filterTodos 组合状态 + 多选优先级 + 关键字', () => {
+    const result = filterTodos(list, { filter: 'all', keyword: '', priority: ['medium', 'high'] })
+    expect(result.map((t) => t.id)).toEqual(['1', '2', '3'])
+    const activeHighLow = filterTodos(list, {
+      filter: 'active',
+      keyword: '',
+      priority: ['high', 'low'],
+    })
+    expect(activeHighLow.map((t) => t.id)).toEqual(['1'])
   })
 
   it('countActive / countCompleted', () => {

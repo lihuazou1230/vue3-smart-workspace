@@ -87,23 +87,35 @@ describe('TodoList', () => {
     expect(liText).not.toContain('写周报')
   })
 
-  it('点击优先级按钮过滤任务', async () => {
+  it('优先级按钮可多选，三者全选自动回到全部', async () => {
     const { wrapper, store } = mountWithStore()
     store.addTodo({ title: '高优甲', priority: 'high' })
     store.addTodo({ title: '低优乙', priority: 'low' })
     await nextTick()
 
-    const high = wrapper.findAll('button').find((btn) => btn.text() === '高')
-    expect(high).toBeTruthy()
-    await high!.trigger('click')
+    const btn = (label: string) => wrapper.findAll('button').find((b) => b.text() === label)
+    await btn('高')!.trigger('click')
     await nextTick()
+    expect(btn('高')!.classes()).toContain('bg-indigo-600')
+
+    // 多选：再点低，两个都选中（grep 全部任务仍显示两类）
+    await btn('低')!.trigger('click')
+    await nextTick()
+    expect(btn('低')!.classes()).toContain('bg-indigo-600')
 
     const liText = wrapper
       .findAll('li')
       .map((li) => li.text())
       .join(' | ')
     expect(liText).toContain('高优甲')
-    expect(liText).not.toContain('低优乙')
+    expect(liText).toContain('低优乙')
+
+    // 再选中中 -> 三者全选 -> 自动清空（全部），按钮均不高亮
+    await btn('中')!.trigger('click')
+    await nextTick()
+    expect(store.priority).toEqual([])
+    expect(btn('高')!.classes()).not.toContain('bg-indigo-600')
+    expect(btn('低')!.classes()).not.toContain('bg-indigo-600')
   })
 
   it('勾选任务调用 toggleComplete', async () => {

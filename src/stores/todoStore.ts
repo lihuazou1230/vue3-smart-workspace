@@ -4,7 +4,14 @@ import { defineStore } from 'pinia'
 
 import { useLocalStorage } from '@/composables/useLocalStorage'
 import { filterTodos, sortTodos } from '@/composables/useTodoFilter'
-import type { PendingDelete, PriorityFilter, Todo, TodoFilter, TodoInput } from '@/types/todo'
+import type {
+  PendingDelete,
+  PrioritySelection,
+  Todo,
+  TodoFilter,
+  TodoInput,
+  TodoPriority,
+} from '@/types/todo'
 import { UNDO_DELETE_TIMEOUT } from '@/types/todo'
 
 export const TODO_STORAGE_KEY = 'smart-workspace:todos'
@@ -23,8 +30,8 @@ export const useTodoStore = defineStore('todo', () => {
   // ---- 运行时状态（不持久化） ----
   /** 当前筛选视图（默认进行中；运行时，进入页面即重置为进行中） */
   const filter = ref<TodoFilter>('active')
-  /** 优先级筛选（默认全部） */
-  const priority = ref<PriorityFilter>('all')
+  /** 已选中的优先级（多选；空数组 = 全部） */
+  const priority = ref<PrioritySelection>([])
   /** 搜索关键字 */
   const keyword = ref('')
   /** 撤销删除队列：软删除中的任务（1 分钟窗口，运行时，刷新即清空） */
@@ -136,8 +143,20 @@ export const useTodoStore = defineStore('todo', () => {
     filter.value = next
   }
 
-  function setPriority(next: PriorityFilter) {
-    priority.value = next
+  /**
+   * 切换某个优先级是否选中（多选）。
+   * 特殊规则：当高/中/低三者都被选中时，自动清空选择（即回到"全部"），
+   * 使三个按钮均不被选中。
+   */
+  function togglePriority(p: TodoPriority) {
+    const cur = priority.value
+    const next = cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]
+    priority.value = next.length === 3 ? [] : next
+  }
+
+  /** 清空优先级选择（显示全部） */
+  function clearPriority() {
+    priority.value = []
   }
 
   function setKeyword(next: string) {
@@ -167,7 +186,8 @@ export const useTodoStore = defineStore('todo', () => {
     commitDelete,
     flushPendingDeletes,
     setFilter,
-    setPriority,
+    togglePriority,
+    clearPriority,
     setKeyword,
   }
 })

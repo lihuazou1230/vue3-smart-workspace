@@ -1,12 +1,12 @@
-import type { PriorityFilter, Todo, TodoFilter, TodoStatus } from '@/types/todo'
+import type { TodoPriority, Todo, TodoFilter, TodoStatus } from '@/types/todo'
 import { todayKey } from '@/utils/dateFormatter'
 import { PRIORITY_WEIGHT } from '@/utils/priorityHelper'
 
 export interface TodoFilterQuery {
   filter: TodoFilter
   keyword: string
-  /** 优先级筛选（默认全部） */
-  priority?: PriorityFilter
+  /** 已选中的优先级（多选）；空数组或 undefined 表示不过滤 */
+  priority?: TodoPriority[]
   /** 用于 today 筛选的日期键（默认今天） */
   today?: string
 }
@@ -33,10 +33,11 @@ export function matchesKeyword(todo: Todo, keyword: string): boolean {
   return todo.title.toLowerCase().includes(kw)
 }
 
-/** 按优先级过滤（'all' 或不传时不过滤） */
-export function filterByPriority(todos: Todo[], priority?: PriorityFilter): Todo[] {
-  if (!priority || priority === 'all') return todos
-  return todos.filter((t) => t.priority === priority)
+/** 按优先级过滤（多选：命中任一已选优先级即保留；空数组不过滤） */
+export function filterByPriority(todos: Todo[], priority?: TodoPriority[]): Todo[] {
+  if (!priority || priority.length === 0) return todos
+  const set = new Set(priority)
+  return todos.filter((t) => set.has(t.priority))
 }
 
 /** 复合过滤：先按状态，再按优先级，最后按关键字 */
