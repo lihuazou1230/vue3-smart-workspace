@@ -118,11 +118,11 @@ describe('TodoList', () => {
     expect(btn('低')!.classes()).not.toContain('bg-indigo-600')
   })
 
-  it('勾选任务调用 toggleComplete', async () => {
+  it('点击行尾圆钮调用 toggleComplete', async () => {
     const { wrapper, store } = mountWithStore()
     const a = store.addTodo({ title: '任务', priority: 'medium' })
     await nextTick()
-    await wrapper.find('li input[type="checkbox"]').setValue(true)
+    await wrapper.find('li button[aria-label="标记为已完成"]').trigger('click')
     vi.advanceTimersByTime(800)
     await nextTick()
     expect(store.todos.find((t) => t.id === a.id)?.status).toBe('completed')

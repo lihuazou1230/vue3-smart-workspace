@@ -13,7 +13,6 @@ import { formatDueLabel, isOverdue, isToday } from '@/utils/dateFormatter'
 import { isValidDateKey } from '@/utils/validation'
 import { priorityLabel, priorityTone } from '@/utils/priorityHelper'
 import BaseBadge from '@/components/atoms/BaseBadge.vue'
-import BaseCheckbox from '@/components/atoms/BaseCheckbox.vue'
 import BaseButton from '@/components/atoms/BaseButton.vue'
 
 const props = defineProps<{
@@ -168,8 +167,6 @@ const particles = computed(() =>
         }"
       />
     </span>
-
-    <BaseCheckbox :model-value="isDone" aria-label="切换完成状态" @change="onToggle" />
 
     <div class="min-w-0 flex-1">
       <p
