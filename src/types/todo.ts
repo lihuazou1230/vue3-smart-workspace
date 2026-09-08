@@ -36,3 +36,16 @@ export interface Todo {
 
 /** 新建任务入参 */
 export type TodoInput = Pick<Todo, 'title' | 'priority' | 'dueDate'>
+
+/** 默认优先级（TodoForm 未选择时使用） */
+export const DEFAULT_PRIORITY: TodoPriority = 'medium'
+
+/** 撤销删除窗口（毫秒） */
+export const UNDO_DELETE_TIMEOUT = 5000
+
+/** 待撤销删除的任务（软删除队列项） */
+export interface PendingDelete {
+  todo: Todo
+  /** 过期时间戳（ms），超过后真正移除 */
+  expiresAt: number
+}
