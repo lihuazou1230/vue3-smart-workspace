@@ -43,6 +43,19 @@ describe('useTodoFilter', () => {
     expect(filterByStatus(list, 'today', '2026-09-16')).toHaveLength(0)
   })
 
+  it('filterByStatus: week 匹配本周内（周一~周日）的截止日期', () => {
+    // 2026-09-15 所在周为 09-14 ~ 09-20；list 中 2(09-15)、3(09-20) 在本周
+    expect(filterByStatus(list, 'week', '2026-09-15').map((t) => t.id)).toEqual(['2', '3'])
+    // 边界：周一/周日计入，上周日/下周一不计入
+    const around: Todo[] = [
+      makeTodo({ id: 'w1', title: '周一', dueDate: '2026-09-14' }),
+      makeTodo({ id: 'w2', title: '周日', dueDate: '2026-09-20' }),
+      makeTodo({ id: 'w3', title: '上周日', dueDate: '2026-09-13' }),
+      makeTodo({ id: 'w4', title: '无日期' }),
+    ]
+    expect(filterByStatus(around, 'week', '2026-09-15').map((t) => t.id)).toEqual(['w1', 'w2'])
+  })
+
   it('matchesKeyword 大小写不敏感且忽略空白', () => {
     expect(matchesKeyword(list[0], ' 周报 ')).toBe(true)
     expect(matchesKeyword(list[0], 'ZHOUBAO')).toBe(false)

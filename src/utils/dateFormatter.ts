@@ -42,6 +42,24 @@ export function addMonths(dateKey: string, months: number): string {
   return toDateKey(new Date(year, month, Math.min(d, lastDay)))
 }
 
+/** 本周周一的日期键（周一为一周起点） */
+export function startOfWeek(now: Date = new Date()): string {
+  const today = toDateKey(now)
+  // JS getDay(): 周日=0 ... 周六=6；转成周一=0 ... 周日=6
+  const dow = (now.getDay() + 6) % 7
+  return addDays(today, -dow)
+}
+
+/** 本周周日的日期键 */
+export function endOfWeek(now: Date = new Date()): string {
+  return addDays(startOfWeek(now), 6)
+}
+
+/** dateKey 是否在本周（周一 ~ 周日）内 */
+export function isInCurrentWeek(dateKey: string, now: Date = new Date()): boolean {
+  return dateKey >= startOfWeek(now) && dateKey <= endOfWeek(now)
+}
+
 /** 相对到期标签：已逾期 / 今天 / 明天 / 后天 / MM月DD日（同今年），跨年附年份 */
 export function formatDueLabel(dateKey: string, now: Date = new Date()): string {
   if (!isValidDateKey(dateKey)) return ''

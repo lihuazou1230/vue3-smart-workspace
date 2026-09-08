@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
 
 import { useTodoStore } from '@/stores/todoStore'
+import { toDateKey, todayKey } from '@/utils/dateFormatter'
 import TodoList from './TodoList.vue'
 
 function mountWithStore() {
@@ -69,6 +70,31 @@ describe('TodoList', () => {
       .join(' | ')
     expect(liText).toContain('已完成乙')
     expect(liText).not.toContain('未完成甲')
+  })
+
+  it('点击本周筛选只显示本周截止的任务', async () => {
+    const { wrapper, store } = mountWithStore()
+    const today = todayKey()
+    // 本周内（用今天作为本周代表）
+    store.addTodo({ title: '本周内任务', priority: 'medium', dueDate: today })
+    // 上月同日（肯定不在本周）
+    const prevMonth = new Date()
+    prevMonth.setMonth(prevMonth.getMonth() - 1)
+    const prevKey = toDateKey(prevMonth)
+    store.addTodo({ title: '上月任务', priority: 'medium', dueDate: prevKey })
+    await nextTick()
+
+    const weekBtn = wrapper.findAll('button').find((btn) => btn.text() === '本周')
+    expect(weekBtn).toBeTruthy()
+    await weekBtn!.trigger('click')
+    await nextTick()
+
+    const liText = wrapper
+      .findAll('li')
+      .map((li) => li.text())
+      .join(' | ')
+    expect(liText).toContain('本周内任务')
+    expect(liText).not.toContain('上月任务')
   })
 
   it('搜索关键字过滤', async () => {

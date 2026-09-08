@@ -3,10 +3,13 @@ import { describe, expect, it } from 'vitest'
 import {
   addDays,
   addMonths,
+  endOfWeek,
   formatDueLabel,
   formatShortDate,
+  isInCurrentWeek,
   isOverdue,
   isToday,
+  startOfWeek,
   todayKey,
   toDateKey,
 } from './dateFormatter'
@@ -45,6 +48,25 @@ describe('dateFormatter', () => {
     expect(addMonths('2024-01-31', 1)).toBe('2024-02-29') // 闰年钳制
     expect(addMonths('2026-03-31', -1)).toBe('2026-02-28')
     expect(addMonths('2026-09-15', 12)).toBe('2027-09-15')
+  })
+
+  it('startOfWeek/endOfWeek 以周一为一周起点', () => {
+    // 2026-09-15 是周二
+    expect(startOfWeek(NOW)).toBe('2026-09-14')
+    expect(endOfWeek(NOW)).toBe('2026-09-20')
+    // 周日也归属当周（2026-09-20 是周日）
+    expect(startOfWeek(new Date(2026, 8, 20, 12))).toBe('2026-09-14')
+    // 跨月：2026-10-01（周四）所在周 9-28 ~ 10-04
+    expect(startOfWeek(new Date(2026, 9, 1, 12))).toBe('2026-09-28')
+    expect(endOfWeek(new Date(2026, 9, 1, 12))).toBe('2026-10-04')
+  })
+
+  it('isInCurrentWeek 判断是否在本周内', () => {
+    expect(isInCurrentWeek('2026-09-14', NOW)).toBe(true) // 周一
+    expect(isInCurrentWeek('2026-09-20', NOW)).toBe(true) // 周日
+    expect(isInCurrentWeek('2026-09-13', NOW)).toBe(false) // 上周日
+    expect(isInCurrentWeek('2026-09-21', NOW)).toBe(false) // 下周一
+    expect(isInCurrentWeek('2026-10-01', NOW)).toBe(false)
   })
 
   it('formatDueLabel 输出相对到期文案', () => {

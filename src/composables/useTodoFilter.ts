@@ -1,5 +1,5 @@
 import type { TodoPriority, Todo, TodoFilter, TodoStatus } from '@/types/todo'
-import { todayKey } from '@/utils/dateFormatter'
+import { isInCurrentWeek, todayKey } from '@/utils/dateFormatter'
 import { PRIORITY_WEIGHT } from '@/utils/priorityHelper'
 
 export interface TodoFilterQuery {
@@ -7,7 +7,7 @@ export interface TodoFilterQuery {
   keyword: string
   /** 已选中的优先级（多选）；空数组或 undefined 表示不过滤 */
   priority?: TodoPriority[]
-  /** 用于 today 筛选的日期键（默认今天） */
+  /** 用于 today/week 筛选的日期键（默认今天） */
   today?: string
 }
 
@@ -20,6 +20,10 @@ export function filterByStatus(todos: Todo[], filter: TodoFilter, today = todayK
       return todos.filter((t) => t.status === 'completed')
     case 'today':
       return todos.filter((t) => t.dueDate === today)
+    case 'week': {
+      const base = new Date(`${today}T00:00:00`)
+      return todos.filter((t) => t.dueDate && isInCurrentWeek(t.dueDate, base))
+    }
     case 'all':
     default:
       return todos

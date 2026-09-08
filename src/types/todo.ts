@@ -7,7 +7,7 @@ export type TodoStatus = 'active' | 'completed'
 export type TodoPriority = 'low' | 'medium' | 'high'
 
 /** 列表筛选条件 */
-export type TodoFilter = 'all' | 'active' | 'completed' | 'today'
+export type TodoFilter = 'all' | 'active' | 'completed' | 'today' | 'week'
 
 /** 优先级筛选：已选中的优先级集合；空数组表示不过滤（显示全部） */
 export type PrioritySelection = TodoPriority[]

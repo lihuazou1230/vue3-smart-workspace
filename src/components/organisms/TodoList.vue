@@ -23,6 +23,7 @@ const FILTER_TABS: Array<{ key: TodoFilter; label: string }> = [
   { key: 'active', label: '进行中' },
   { key: 'completed', label: '已完成' },
   { key: 'today', label: '今日' },
+  { key: 'week', label: '本周' },
 ]
 
 const PRIORITY_TABS: Array<{ key: TodoPriority; label: string }> = PRIORITY_ORDER.map((p) => ({
