@@ -37,6 +37,14 @@ describe('TodoList', () => {
     expect(liText).toContain('任务乙')
   })
 
+  it('新建任务从左滑入（anim-enter-left）', async () => {
+    const { wrapper, store } = mountWithStore()
+    store.addTodo({ title: '新任务', priority: 'high' })
+    await nextTick()
+    const li = wrapper.find('li')
+    expect(li.classes()).toContain('anim-enter-left')
+  })
+
   it('空状态提示', () => {
     const { wrapper } = mountWithStore()
     expect(wrapper.text()).toContain('暂无任务')

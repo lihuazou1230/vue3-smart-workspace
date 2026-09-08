@@ -111,4 +111,11 @@ describe('TodoItem', () => {
     await nextTick()
     expect(wrapper.find('li').classes()).toContain('anim-reveal-right')
   })
+
+  it('新建任务（enterFromLeft）播放从左滑入动画', async () => {
+    const todo = makeTodo({ id: '1', title: '新建的任务' })
+    const wrapper = mount(TodoItem, { props: { todo, enterFromLeft: true } })
+    await nextTick()
+    expect(wrapper.find('li').classes()).toContain('anim-enter-left')
+  })
 })

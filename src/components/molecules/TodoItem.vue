@@ -24,6 +24,8 @@ const props = defineProps<{
   completeSlide?: boolean
   /** 是否为刚撤销恢复的任务（从右滑入入场动画） */
   revealFromRight?: boolean
+  /** 是否为刚新建的任务（从左滑入入场动画） */
+  enterFromLeft?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -63,6 +65,27 @@ watch(
   () => props.revealFromRight,
   (val) => {
     if (val) reveal()
+  },
+)
+
+/** 从左滑入入场动画（新建任务） */
+const entering = ref(false)
+const ENTER_MS = 380
+function enter() {
+  entering.value = true
+  setTimeout(() => {
+    entering.value = false
+  }, ENTER_MS)
+}
+
+// 新建任务：挂载时若已标记，播放一次；此后 enterFromLeft 变 true 也播放
+onMounted(() => {
+  if (props.enterFromLeft) enter()
+})
+watch(
+  () => props.enterFromLeft,
+  (val) => {
+    if (val) enter()
   },
 )
 
@@ -128,6 +151,7 @@ const particles = computed(() =>
       anim === 'complete' ? 'anim-slide-left' : '',
       anim === 'remove' ? 'anim-slide-right' : '',
       revealing ? 'anim-reveal-right' : '',
+      entering ? 'anim-enter-left' : '',
     ]"
   >
     <!-- 礼花（完成时爆发） -->
@@ -226,6 +250,21 @@ const particles = computed(() =>
 @keyframes reveal-right {
   from {
     transform: translateX(120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* 新建任务：从左滑入 */
+.anim-enter-left {
+  animation: enter-left 0.38s ease-out;
+}
+@keyframes enter-left {
+  from {
+    transform: translateX(-120%);
     opacity: 0;
   }
   to {

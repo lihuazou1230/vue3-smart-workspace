@@ -6,7 +6,7 @@
  * - 1 分钟内可撤销的删除 Toast（展示剩余秒数，可点击恢复）
  */
 
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 
 import type { TodoFilter } from '@/types/todo'
 import { useTodoStore } from '@/stores/todoStore'
@@ -79,6 +79,28 @@ function undo() {
   }
   onPendingChange()
 }
+
+/** 新建任务 id（触发对应项从左滑入动画；只标记新增项，初始已存在的不触发） */
+const enterLeftId = ref<string | null>(null)
+const knownIds = new Set(store.todos.map((t) => t.id))
+let enterTimer: ReturnType<typeof setTimeout> | null = null
+watch(
+  () => store.todos,
+  (list) => {
+    for (const t of list) {
+      if (!knownIds.has(t.id)) {
+        knownIds.add(t.id)
+        enterLeftId.value = t.id
+        if (enterTimer) clearTimeout(enterTimer)
+        enterTimer = setTimeout(() => {
+          enterLeftId.value = null
+        }, 500)
+        break
+      }
+    }
+  },
+  { immediate: false },
+)
 </script>
 
 <template>
@@ -128,6 +150,7 @@ function undo() {
         show-due
         :complete-slide="store.filter === 'active'"
         :reveal-from-right="todo.id === revealId"
+        :enter-from-left="todo.id === enterLeftId"
         @toggle="toggle"
         @remove="remove"
       />
