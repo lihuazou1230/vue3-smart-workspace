@@ -2,8 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 
-import { useTodoStore } from './todoStore'
-import { TODO_STORAGE_KEY } from './todoStore'
+import { useTodoStore, TODO_STORAGE_KEY } from './todoStore'
 
 function seedTodos() {
   const store = useTodoStore()
@@ -77,30 +76,44 @@ describe('todoStore', () => {
     expect(store.completedCount).toBe(1)
   })
 
-  it('removeTodo 软删除：进入队列且立即可撤销', () => {
+  it('removeTodo 软删除：进入撤销队列，立即可撤销', () => {
     const store = useTodoStore()
-    const { a } = seedTodos()
+    const { a, b } = seedTodos()
     store.removeTodo(a.id)
-    // 进入撤销队列，可见列表已排除
+    // 进入撤销队列，可见列表已隐藏
     expect(store.pendingDeletes).toHaveLength(1)
     expect(store.latestPendingDelete?.todo.id).toBe(a.id)
-    expect(store.visibleTodos.map((t) => t.id)).not.toContain(a.id)
-    // todos 底层尚未删除（撤销窗口内不落盘）
+    expect(store.visibleTodos.map((t) => t.id)).toEqual([b.id])
+    // 软删除期间不落盘：todos 底层仍保留
     expect(store.todos.some((t) => t.id === a.id)).toBe(true)
 
+    // 撤销恢复
     store.undoDelete(a.id)
     expect(store.pendingDeletes).toHaveLength(0)
     expect(store.visibleTodos.map((t) => t.id)).toContain(a.id)
   })
 
-  it('removeTodo 超时 5 秒后真正删除并落盘', async () => {
+  it('undoDelete 后不再自动超时删除', async () => {
+    vi.useFakeTimers()
+    const store = useTodoStore()
+    const { a } = seedTodos()
+    store.removeTodo(a.id)
+
+    // 撤销，取消定时器
+    store.undoDelete(a.id)
+    vi.advanceTimersByTime(60_000 + 100)
+    expect(store.todos.some((t) => t.id === a.id)).toBe(true)
+    expect(store.pendingDeletes).toHaveLength(0)
+  })
+
+  it('removeTodo 超时 60 秒后真正删除并落盘', async () => {
     vi.useFakeTimers()
     const store = useTodoStore()
     const { a, b } = seedTodos()
     store.removeTodo(a.id)
     await nextTick()
 
-    vi.advanceTimersByTime(4999)
+    vi.advanceTimersByTime(59_999)
     expect(store.todos.some((t) => t.id === a.id)).toBe(true)
 
     vi.advanceTimersByTime(1)
@@ -108,30 +121,24 @@ describe('todoStore', () => {
     expect(store.pendingDeletes).toHaveLength(0)
     expect(store.visibleTodos.map((t) => t.id)).toEqual([b.id])
 
-    // 等待持久化 flush 后校验 localStorage
+    // 落盘后 localStorage 不含该任务
     await nextTick()
     const raw = localStorage.getItem(TODO_STORAGE_KEY)
-    expect(raw).toBeTruthy()
     const persisted = JSON.parse(raw!) as { id: string }[]
     expect(persisted.some((t) => t.id === a.id)).toBe(false)
   })
 
-  it('持久化：新增任务写入 localStorage，undo 后不丢任务', async () => {
+  it('持久化：软删除不落盘，任务仍在 localStorage', async () => {
     const store = useTodoStore()
     const { a } = seedTodos()
     await nextTick()
 
-    const persisted = JSON.parse(localStorage.getItem(TODO_STORAGE_KEY)!) as { id: string }[]
-    expect(persisted).toHaveLength(2)
-
     store.removeTodo(a.id)
     await nextTick()
-    // 软删除不落盘：localStorage 仍是 2 条
-    expect(JSON.parse(localStorage.getItem(TODO_STORAGE_KEY)!).length).toBe(2)
-
-    store.undoDelete(a.id)
-    await nextTick()
-    expect(store.todos).toHaveLength(2)
+    // 软删除窗口内任务仍保留在 localStorage
+    const persisted = JSON.parse(localStorage.getItem(TODO_STORAGE_KEY)!) as { id: string }[]
+    expect(persisted).toHaveLength(2)
+    expect(persisted.some((t) => t.id === a.id)).toBe(true)
   })
 
   it('重复 removeTodo 同一任务幂等', () => {

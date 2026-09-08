@@ -25,7 +25,7 @@ export const useTodoStore = defineStore('todo', () => {
   // ---- 运行时状态（不持久化） ----
   /** 搜索关键字 */
   const keyword = ref('')
-  /** 撤销删除队列：软删除中的任务（运行时，刷新即清空） */
+  /** 撤销删除队列：软删除中的任务（1 分钟窗口，运行时，刷新即清空） */
   const pendingDeletes = ref<PendingDelete[]>([])
   /** id -> 真正删除定时器（运行时） */
   const timers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -84,7 +84,7 @@ export const useTodoStore = defineStore('todo', () => {
     )
   }
 
-  /** 软删除：进入撤销队列，5 秒后真正移除并落盘 */
+  /** 软删除：进入撤销队列，1 分钟后真正移除并落盘 */
   function removeTodo(id: string) {
     if (pendingDeletes.value.some((p) => p.todo.id === id)) return
     const todo = todos.value.find((t) => t.id === id)
@@ -98,7 +98,7 @@ export const useTodoStore = defineStore('todo', () => {
     timers.set(id, timer)
   }
 
-  /** 撤销删除：取消定时器并移出队列（todos 从未被改动，无需恢复数据） */
+  /** 撤销删除：取消定时器并移出队列（todos 未被改动，无需恢复数据） */
   function undoDelete(id: string) {
     const timer = timers.get(id)
     if (timer) {
@@ -119,7 +119,7 @@ export const useTodoStore = defineStore('todo', () => {
     todos.value = todos.value.filter((t) => t.id !== id)
   }
 
-  /** 立即撤销/清理所有软删除（组件销毁等场景可调用） */
+  /** 立即清理所有软删除（组件销毁等场景） */
   function flushPendingDeletes() {
     for (const id of [...timers.keys()]) commitDelete(id)
   }

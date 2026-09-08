@@ -107,16 +107,23 @@ describe('TodoList', () => {
     expect(wrapper.text()).not.toContain('已删除')
   })
 
-  it('超时后任务真正从 store 移除', async () => {
+  it('删除软隐藏、撤销条出现并可恢复（1 分钟窗口）', async () => {
     const { wrapper, store } = mountWithStore()
     const a = store.addTodo({ title: '将被删除', priority: 'medium' })
     await nextTick()
     store.removeTodo(a.id)
     await nextTick()
+
+    // 软删除：可见列表隐藏，但底层仍保留
     expect(store.visibleTodos).toHaveLength(0)
-    store.commitDelete(a.id)
+    expect(store.todos.some((t) => t.id === a.id)).toBe(true)
+    // 撤销条仍显示
+    expect(wrapper.text()).toContain('已删除「将被删除」')
+
+    // 撤销恢复
+    store.undoDelete(a.id)
     await nextTick()
-    expect(store.todos.some((t) => t.id === a.id)).toBe(false)
-    expect(wrapper.text()).not.toContain('将被删除')
+    expect(store.visibleTodos.some((t) => t.id === a.id)).toBe(true)
+    expect(wrapper.text()).not.toContain('已删除')
   })
 })

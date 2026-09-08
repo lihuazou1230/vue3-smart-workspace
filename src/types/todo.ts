@@ -40,10 +40,10 @@ export type TodoInput = Pick<Todo, 'title' | 'priority' | 'dueDate'>
 /** 默认优先级（TodoForm 未选择时使用） */
 export const DEFAULT_PRIORITY: TodoPriority = 'medium'
 
-/** 撤销删除窗口（毫秒） */
-export const UNDO_DELETE_TIMEOUT = 5000
+/** 撤销删除窗口（毫秒）：1 分钟 */
+export const UNDO_DELETE_TIMEOUT = 60_000
 
-/** 待撤销删除的任务（软删除队列项） */
+/** 待撤销删除的任务（软删除队列项，1 分钟内可撤销，超时才真正移除） */
 export interface PendingDelete {
   todo: Todo
   /** 过期时间戳（ms），超过后真正移除 */

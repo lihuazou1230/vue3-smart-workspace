@@ -3,7 +3,7 @@
  * 有机体组件：任务列表（连接 todoStore）
  * - 筛选 tab（全部/进行中/已完成/今日）+ 搜索
  * - 空状态 / 计数
- * - 5 秒撤销删除 Toast（点击可恢复）
+ * - 1 分钟内可撤销的删除 Toast（展示剩余秒数，可点击恢复）
  */
 
 import { computed, onUnmounted, ref } from 'vue'
@@ -25,7 +25,7 @@ const FILTER_TABS: Array<{ key: TodoFilter; label: string }> = [
 
 const filterLabel = computed(() => FILTER_TABS.find((t) => t.key === store.filter)?.label ?? '全部')
 
-/** 撤销条倒计时展示（每秒刷新剩余秒数，纯 UI） */
+/** 撤销条剩余秒数展示（纯 UI，每秒刷新） */
 const remainingSeconds = ref(0)
 let ticker: ReturnType<typeof setInterval> | null = null
 
@@ -45,7 +45,7 @@ function stopTicker() {
   }
 }
 
-// 撤销条出现时启动倒计时展示
+// 撤销条出现时启动倒计时，消失时停止
 function onPendingChange() {
   if (store.latestPendingDelete) {
     startTicker(store.latestPendingDelete.expiresAt)
@@ -92,7 +92,7 @@ function undo() {
       </div>
     </div>
 
-    <!-- 撤销删除 Toast -->
+    <!-- 撤销删除 Toast（1 分钟内可撤销，展示剩余秒数） -->
     <div
       v-if="store.latestPendingDelete"
       class="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
