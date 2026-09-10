@@ -1,8 +1,9 @@
 /* 自定义纯 CSS3 效果：毛玻璃、滚动条、过渡动画（后续阶段逐步完善） */
 
-/* 毛玻璃卡片 */
+/* 毛玻璃卡片（圆角跟随主题：--app-radius，默认 1rem） */
 .glass {
   @apply border border-white/40 bg-white/60 backdrop-blur-md dark:border-slate-700/40 dark:bg-slate-800/50;
+  border-radius: var(--app-radius, 1rem);
 }
 
 /* 细滚动条 */
