@@ -15,21 +15,48 @@ import { priorityLabel, priorityTone } from '@/utils/priorityHelper'
 import BaseBadge from '@/components/atoms/BaseBadge.vue'
 import BaseButton from '@/components/atoms/BaseButton.vue'
 
-const props = defineProps<{
-  todo: Todo
-  /** 是否展示截止日期徽章与逾期标红 */
-  showDue?: boolean
-  /** 完成时是否向左滑出（进行中视图下完成任务会从列表消失；全部视图下不滑出仅礼花） */
-  completeSlide?: boolean
-  /** 是否为刚撤销恢复的任务（从右滑入入场动画） */
-  revealFromRight?: boolean
-  /** 是否为刚新建的任务（从左滑入入场动画） */
-  enterFromLeft?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    todo: Todo
+    /** 是否展示截止日期徽章与逾期标红 */
+    showDue?: boolean
+    /** 完成时是否向左滑出（进行中视图下完成任务会从列表消失；全部视图下不滑出仅礼花） */
+    completeSlide?: boolean
+    /** 是否为刚撤销恢复的任务（从右滑入入场动画） */
+    revealFromRight?: boolean
+    /** 是否为刚新建的任务（从左滑入入场动画） */
+    enterFromLeft?: boolean
+    /** 是否展示子任务清单 */
+    showSubtasks?: boolean
+    /** 是否处于多选模式（展示选择框） */
+    selectable?: boolean
+    /** 是否被选中（多选） */
+    selected?: boolean
+    /** 是否可拖拽排序 */
+    draggable?: boolean
+  }>(),
+  {
+    showDue: false,
+    completeSlide: false,
+    revealFromRight: false,
+    enterFromLeft: false,
+    showSubtasks: true,
+    selectable: false,
+    selected: false,
+    draggable: false,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'toggle', id: string): void
   (e: 'remove', id: string): void
+  (e: 'toggle-subtask', todoId: string, subtaskId: string): void
+  (e: 'add-subtask', todoId: string, title: string): void
+  (e: 'remove-subtask', todoId: string, subtaskId: string): void
+  (e: 'toggle-pin', id: string): void
+  (e: 'toggle-select', id: string): void
+  (e: 'drag-start', id: string): void
+  (e: 'drop-on', id: string): void
 }>()
 
 const isDone = computed(() => props.todo.status === 'completed')
@@ -140,6 +167,48 @@ const particles = computed(() =>
     }
   }),
 )
+
+// ---- 子任务清单 ----
+const subtaskTotal = computed(() => props.todo.subtasks.length)
+const subtaskDone = computed(() => props.todo.subtasks.filter((s) => s.completed).length)
+const subtaskProgress = computed(() =>
+  subtaskTotal.value === 0 ? 0 : Math.round((subtaskDone.value / subtaskTotal.value) * 100),
+)
+/** 是否展开子任务列表（默认折叠，仅展示进度） */
+const expandSubtasks = ref(false)
+const newSubtask = ref('')
+
+function toggleExpandSubtask() {
+  expandSubtasks.value = !expandSubtasks.value
+}
+
+function onToggleSubtask(subtaskId: string) {
+  emit('toggle-subtask', props.todo.id, subtaskId)
+}
+
+function onRemoveSubtask(subtaskId: string) {
+  emit('remove-subtask', props.todo.id, subtaskId)
+}
+
+function onAddSubtask() {
+  const title = newSubtask.value.trim()
+  if (!title) return
+  emit('add-subtask', props.todo.id, title)
+  newSubtask.value = ''
+}
+
+// ---- 拖拽排序 ----
+function onDragStart(ev: DragEvent) {
+  if (!props.draggable) return
+  ev.dataTransfer?.setData('text/plain', props.todo.id)
+  ev.dataTransfer!.effectAllowed = 'move'
+  emit('drag-start', props.todo.id)
+}
+
+function onDrop(ev: DragEvent) {
+  ev.preventDefault()
+  emit('drop-on', props.todo.id)
+}
 </script>
 
 <template>
@@ -152,7 +221,20 @@ const particles = computed(() =>
       revealing ? 'anim-reveal-right' : '',
       entering ? 'anim-enter-left' : '',
     ]"
+    :draggable="draggable"
+    @dragstart="onDragStart"
+    @dragover.prevent
+    @drop.prevent="onDrop"
   >
+    <!-- 拖拽把手（可拖拽时 hover 显示） -->
+    <span
+      v-if="draggable"
+      class="drag-handle select-none text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-slate-600"
+      aria-hidden="true"
+      @dragstart.stop
+    >
+      ⠿
+    </span>
     <!-- 礼花（完成时爆发） -->
     <span v-if="celebrate" class="popper" aria-hidden="true">
       <span
@@ -167,6 +249,30 @@ const particles = computed(() =>
         }"
       />
     </span>
+
+    <!-- 多选模式的复选框（数据流由父级连接 store） -->
+    <button
+      v-if="selectable"
+      type="button"
+      class="flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors"
+      :class="
+        selected
+          ? 'border-indigo-500 bg-indigo-500 text-white'
+          : 'border-slate-300 text-transparent hover:border-indigo-400 dark:border-slate-600'
+      "
+      :aria-label="selected ? '取消选中' : '选中'"
+      @click="emit('toggle-select', todo.id)"
+    >
+      <svg class="h-3 w-3" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path
+          d="M3.5 8.5l3 3 6-7"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </button>
 
     <div class="min-w-0 flex-1">
       <p
@@ -187,11 +293,109 @@ const particles = computed(() =>
           <template v-else>{{ dueLabel }}</template>
         </BaseBadge>
       </p>
+
+      <!-- 子任务清单（可折叠） -->
+      <div v-if="showSubtasks" class="mt-1.5 space-y-1.5">
+        <button
+          v-if="subtaskTotal > 0"
+          type="button"
+          class="group flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400"
+          @click="toggleExpandSubtask"
+        >
+          <span class="transition-transform" :class="expandSubtasks ? 'rotate-90' : ''">▶</span>
+          <span>子任务 {{ subtaskDone }}/{{ subtaskTotal }}</span>
+        </button>
+
+        <!-- 进度条 -->
+        <template v-if="subtaskTotal > 0">
+          <div
+            class="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
+            aria-hidden="true"
+          >
+            <div
+              class="h-full rounded-full bg-indigo-500 transition-all"
+              :style="{ width: `${subtaskProgress}%` }"
+            ></div>
+          </div>
+
+          <ul v-if="expandSubtasks" class="space-y-1">
+            <li v-for="st in todo.subtasks" :key="st.id" class="flex items-center gap-1.5 text-xs">
+              <button
+                type="button"
+                class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-colors"
+                :class="
+                  st.completed
+                    ? 'border-emerald-500 bg-emerald-500 text-white'
+                    : 'border-slate-300 hover:border-emerald-400 dark:border-slate-600'
+                "
+                :aria-label="st.completed ? '标记子任务未完成' : '标记子任务完成'"
+                @click="onToggleSubtask(st.id)"
+              >
+                <svg class="h-2.5 w-2.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path
+                    d="M3.5 8.5l3 3 6-7"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+              <span
+                class="flex-1 truncate"
+                :class="st.completed ? 'text-slate-400 line-through dark:text-slate-500' : ''"
+                >{{ st.title }}</span
+              >
+              <button
+                type="button"
+                class="text-slate-300 hover:text-rose-500 dark:text-slate-600"
+                aria-label="删除子任务"
+                @click="onRemoveSubtask(st.id)"
+              >
+                ×
+              </button>
+            </li>
+          </ul>
+        </template>
+
+        <!-- 添加子任务 -->
+        <div class="flex items-center gap-1">
+          <input
+            v-if="expandSubtasks || subtaskTotal === 0"
+            v-model="newSubtask"
+            type="text"
+            placeholder="添加子任务，回车…"
+            class="w-full rounded-md border border-slate-200 bg-transparent px-2 py-1 text-xs outline-none placeholder:text-slate-400 focus:border-indigo-400 dark:border-slate-600"
+            @keydown.enter.prevent="onAddSubtask"
+          />
+          <button
+            v-else
+            type="button"
+            class="text-xs text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+            @click="expandSubtasks = true"
+          >
+            + 子任务
+          </button>
+        </div>
+      </div>
     </div>
 
     <BaseBadge :tone="priorityTone(todo.priority)" size="xs">
       {{ priorityLabel(todo.priority) }}优先级
     </BaseBadge>
+
+    <!-- 置顶（今日聚焦） -->
+    <button
+      type="button"
+      class="shrink-0 text-base leading-none transition-transform"
+      :class="
+        todo.pinned ? 'text-amber-500' : 'text-slate-300 hover:text-amber-500 dark:text-slate-600'
+      "
+      :aria-label="todo.pinned ? '取消置顶' : '置顶到今日聚焦'"
+      @click="emit('toggle-pin', todo.id)"
+    >
+      📌
+    </button>
 
     <!-- 行尾圆形完成按钮：未完成空心圆，已完成实心对勾 -->
     <button
@@ -233,6 +437,14 @@ const particles = computed(() =>
 </template>
 
 <style scoped>
+/* 拖拽把手 */
+.drag-handle {
+  cursor: grab;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+
 /* 完成：向左滑出 + 渐隐 */
 .anim-slide-left {
   animation: slide-out-left 0.75s cubic-bezier(0.4, 0, 0.2, 1) forwards;

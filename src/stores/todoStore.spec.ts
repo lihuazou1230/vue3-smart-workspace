@@ -3,6 +3,7 @@ import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 
 import { useTodoStore, TODO_STORAGE_KEY } from './todoStore'
+import { todayKey } from '@/utils/dateFormatter'
 
 function seedTodos() {
   const store = useTodoStore()
@@ -195,5 +196,72 @@ describe('todoStore', () => {
   it('默认筛选为进行中（active）', () => {
     const store = useTodoStore()
     expect(store.filter).toBe('active')
+  })
+})
+
+describe('todoStore · 阶段4扩展', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+    vi.useRealTimers()
+  })
+
+  it('子任务：增删切换', () => {
+    const store = useTodoStore()
+    const t = store.addTodo({ title: '母任务', priority: 'medium' })
+    store.addSubtask(t.id, '子1')
+    store.addSubtask(t.id, '子2')
+    expect(store.todos[0].subtasks).toHaveLength(2)
+    const subId = store.todos[0].subtasks[0].id
+    store.toggleSubtask(t.id, subId)
+    expect(store.todos[0].subtasks[0].completed).toBe(true)
+    store.removeSubtask(t.id, subId)
+    expect(store.todos[0].subtasks).toHaveLength(1)
+  })
+
+  it('置顶：togglePinned 并进入今日聚焦', () => {
+    const store = useTodoStore()
+    const t = store.addTodo({ title: '普通', priority: 'medium' })
+    store.togglePinned(t.id)
+    expect(store.todos[0].pinned).toBe(true)
+    expect(store.myDayTodos.map((x) => x.id)).toContain(t.id)
+  })
+
+  it('今日聚焦：今日到期任务进入', () => {
+    const store = useTodoStore()
+    const t = store.addTodo({ title: '今天到期', priority: 'medium', dueDate: todayKey() })
+    expect(store.myDayTodos.map((x) => x.id)).toContain(t.id)
+  })
+
+  it('多选与批量：完成/恢复/改优先级/删除', () => {
+    const store = useTodoStore()
+    const a = store.addTodo({ title: 'a', priority: 'medium' })
+    const b = store.addTodo({ title: 'b', priority: 'low' })
+
+    store.toggleSelect(a.id)
+    store.toggleSelect(b.id)
+    expect(store.selectedIds).toHaveLength(2)
+
+    store.bulkSetStatus(store.selectedIds, true)
+    expect(store.todos.every((t) => t.status === 'completed')).toBe(true)
+    expect(store.selectedIds).toHaveLength(0)
+
+    store.toggleSelect(a.id)
+    store.bulkSetPriority(store.selectedIds, 'high')
+    expect(store.todos.find((t) => t.id === a.id)?.priority).toBe('high')
+
+    store.toggleSelect(b.id)
+    store.bulkRemove(store.selectedIds)
+    expect(store.pendingDeletes).toHaveLength(1)
+  })
+
+  it('moveTodo 重排并开启手动排序（拖拽落到目标位置）', () => {
+    const store = useTodoStore()
+    const a = store.addTodo({ title: 'a', priority: 'low' })
+    const b = store.addTodo({ title: 'b', priority: 'high' })
+    store.moveTodo(a.id, b.id)
+    // 原 [a, b]，把 a 拖到 b 的位置 -> [b, a]
+    expect(store.todos.map((t) => t.id)).toEqual([b.id, a.id])
+    expect(store.manualOrder).toBe(true)
   })
 })

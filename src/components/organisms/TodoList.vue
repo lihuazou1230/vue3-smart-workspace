@@ -73,6 +73,62 @@ function remove(id: string) {
   onPendingChange()
 }
 
+/** 子任务 */
+function onToggleSubtask(todoId: string, subtaskId: string) {
+  store.toggleSubtask(todoId, subtaskId)
+}
+
+function onAddSubtask(todoId: string, title: string) {
+  store.addSubtask(todoId, title)
+}
+
+function onRemoveSubtask(todoId: string, subtaskId: string) {
+  store.removeSubtask(todoId, subtaskId)
+}
+
+/** 置顶（今日聚焦） */
+function onTogglePin(id: string) {
+  store.togglePinned(id)
+}
+
+/** 多选 */
+function onToggleSelect(id: string) {
+  store.toggleSelect(id)
+}
+
+const selectedCount = computed(() => store.selectedIds.length)
+
+/** 拖拽排序 */
+const draggingId = ref<string | null>(null)
+
+function onDragStart(id: string) {
+  draggingId.value = id
+}
+
+function onDropOn(targetId: string) {
+  if (draggingId.value && draggingId.value !== targetId) {
+    store.moveTodo(draggingId.value, targetId)
+  }
+  draggingId.value = null
+}
+
+function batchComplete() {
+  store.bulkSetStatus(store.selectedIds, true)
+}
+
+function batchActive() {
+  store.bulkSetStatus(store.selectedIds, false)
+}
+
+function batchDelete() {
+  store.bulkRemove(store.selectedIds)
+  onPendingChange()
+}
+
+function batchSetPriority(p: TodoPriority) {
+  store.bulkSetPriority(store.selectedIds, p)
+}
+
 /** 撤销恢复的任务 id（触发对应项从右滑入动画；短暂保持后清除） */
 const revealId = ref<string | null>(null)
 
@@ -126,8 +182,17 @@ watch(
           {{ tab.label }}
         </BaseButton>
       </div>
-      <div class="w-56">
-        <SearchBar v-model="store.keyword" />
+      <div class="flex items-center gap-2">
+        <div class="w-56">
+          <SearchBar v-model="store.keyword" />
+        </div>
+        <BaseButton
+          size="sm"
+          :variant="store.selectionMode ? 'primary' : 'secondary'"
+          @click="store.toggleSelectionMode()"
+        >
+          {{ store.selectionMode ? '退出多选' : '多选' }}
+        </BaseButton>
       </div>
     </div>
 
@@ -152,6 +217,27 @@ watch(
           {{ t.label }}
         </BaseButton>
       </div>
+    </div>
+
+    <!-- 批量操作栏（多选模式） -->
+    <div
+      v-if="store.selectionMode"
+      class="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-800 dark:bg-indigo-900/30"
+    >
+      <span class="text-sm text-indigo-700 dark:text-indigo-200">已选 {{ selectedCount }} 项</span>
+      <div class="flex flex-wrap gap-1">
+        <BaseButton size="sm" variant="primary" @click="batchComplete">完成</BaseButton>
+        <BaseButton size="sm" variant="secondary" @click="batchActive">取消完成</BaseButton>
+        <BaseButton size="sm" variant="danger" @click="batchDelete">删除</BaseButton>
+        <BaseButton size="sm" variant="secondary" @click="batchSetPriority('high')">高</BaseButton>
+        <BaseButton size="sm" variant="secondary" @click="batchSetPriority('medium')"
+          >中</BaseButton
+        >
+        <BaseButton size="sm" variant="secondary" @click="batchSetPriority('low')">低</BaseButton>
+      </div>
+      <BaseButton size="sm" variant="ghost" class="ml-auto" @click="store.toggleSelectionMode()">
+        取消
+      </BaseButton>
     </div>
 
     <!-- 撤销删除 Toast（1 分钟内可撤销，展示剩余秒数） -->
@@ -179,11 +265,22 @@ watch(
         :key="todo.id"
         :todo="todo"
         show-due
+        :show-subtasks="!store.selectionMode"
+        :selectable="store.selectionMode"
+        :selected="store.selectedIds.includes(todo.id)"
         :complete-slide="store.filter === 'active'"
         :reveal-from-right="todo.id === revealId"
         :enter-from-left="todo.id === enterLeftId"
+        :draggable="!store.selectionMode"
         @toggle="toggle"
         @remove="remove"
+        @toggle-subtask="onToggleSubtask"
+        @add-subtask="onAddSubtask"
+        @remove-subtask="onRemoveSubtask"
+        @toggle-pin="onTogglePin"
+        @toggle-select="onToggleSelect"
+        @drag-start="onDragStart"
+        @drop-on="onDropOn"
       />
     </ul>
 

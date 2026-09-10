@@ -4,9 +4,11 @@ import { defineStore } from 'pinia'
 
 import { useLocalStorage } from '@/composables/useLocalStorage'
 import { filterTodos, sortTodos } from '@/composables/useTodoFilter'
+import { todayKey } from '@/utils/dateFormatter'
 import type {
   PendingDelete,
   PrioritySelection,
+  Subtask,
   Todo,
   TodoFilter,
   TodoInput,
@@ -34,6 +36,12 @@ export const useTodoStore = defineStore('todo', () => {
   const priority = ref<PrioritySelection>([])
   /** 搜索关键字 */
   const keyword = ref('')
+  /** 是否处于多选模式（批量操作；运行时） */
+  const selectionMode = ref(false)
+  /** 已选中的任务 id（多选；运行时） */
+  const selectedIds = ref<string[]>([])
+  /** 是否已手动排序（拖拽后关闭自动排序） */
+  const manualOrder = ref(false)
   /** 撤销删除队列：软删除中的任务（1 分钟窗口，运行时，刷新即清空） */
   const pendingDeletes = ref<PendingDelete[]>([])
   /** id -> 真正删除定时器（运行时） */
@@ -46,16 +54,21 @@ export const useTodoStore = defineStore('todo', () => {
     return todos.value.filter((t) => !pendingIds.has(t.id))
   })
 
-  /** 过滤 + 搜索后的展示列表（按优先级高→低、截止日期早→晚排序） */
-  const filteredTodos = computed<Todo[]>(() =>
-    sortTodos(
-      filterTodos(visibleTodos.value, {
-        filter: filter.value,
-        keyword: keyword.value,
-        priority: priority.value,
-      }),
-    ),
-  )
+  /** 过滤 + 搜索后的展示列表（按优先级高→低、截止日期早→晚排序；手动排序后不再重排） */
+  const filteredTodos = computed<Todo[]>(() => {
+    const base = filterTodos(visibleTodos.value, {
+      filter: filter.value,
+      keyword: keyword.value,
+      priority: priority.value,
+    })
+    return manualOrder.value ? base : sortTodos(base)
+  })
+
+  /** 今日聚焦（My Day）：置顶 或 今日到期 的任务 */
+  const myDayTodos = computed<Todo[]>(() => {
+    const today = todayKey()
+    return visibleTodos.value.filter((t) => t.pinned || (t.dueDate && t.dueDate === today))
+  })
 
   const totalCount = computed(() => visibleTodos.value.length)
   const activeCount = computed(() => visibleTodos.value.filter((t) => t.status === 'active').length)
@@ -141,6 +154,8 @@ export const useTodoStore = defineStore('todo', () => {
 
   function setFilter(next: TodoFilter) {
     filter.value = next
+    manualOrder.value = false
+    clearSelection()
   }
 
   /**
@@ -152,15 +167,112 @@ export const useTodoStore = defineStore('todo', () => {
     const cur = priority.value
     const next = cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]
     priority.value = next.length === 3 ? [] : next
+    manualOrder.value = false
   }
 
   /** 清空优先级选择（显示全部） */
   function clearPriority() {
     priority.value = []
+    manualOrder.value = false
   }
 
   function setKeyword(next: string) {
     keyword.value = next
+    manualOrder.value = false
+  }
+
+  // ---- 子任务 ----
+  function toggleSubtask(todoId: string, subtaskId: string) {
+    todos.value = todos.value.map((t) =>
+      t.id === todoId
+        ? {
+            ...t,
+            subtasks: t.subtasks.map((s) =>
+              s.id === subtaskId ? { ...s, completed: !s.completed } : s,
+            ),
+          }
+        : t,
+    )
+  }
+
+  function addSubtask(todoId: string, title: string) {
+    const text = title.trim()
+    if (!text) return
+    const subtask: Subtask = { id: createId(), title: text, completed: false }
+    todos.value = todos.value.map((t) =>
+      t.id === todoId ? { ...t, subtasks: [...t.subtasks, subtask] } : t,
+    )
+  }
+
+  function removeSubtask(todoId: string, subtaskId: string) {
+    todos.value = todos.value.map((t) =>
+      t.id === todoId ? { ...t, subtasks: t.subtasks.filter((s) => s.id !== subtaskId) } : t,
+    )
+  }
+
+  // ---- 置顶（今日聚焦/My Day） ----
+  function togglePinned(id: string) {
+    todos.value = todos.value.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t))
+  }
+
+  // ---- 多选批量 ----
+  function toggleSelectionMode() {
+    selectionMode.value = !selectionMode.value
+    clearSelection()
+  }
+
+  function toggleSelect(id: string) {
+    selectedIds.value = selectedIds.value.includes(id)
+      ? selectedIds.value.filter((x) => x !== id)
+      : [...selectedIds.value, id]
+  }
+
+  function clearSelection() {
+    selectedIds.value = []
+  }
+
+  function getSelectedTodos(): Todo[] {
+    return todos.value.filter((t) => selectedIds.value.includes(t.id))
+  }
+
+  /** 批量设置完成状态 */
+  function bulkSetStatus(ids: string[], completed: boolean) {
+    todos.value = todos.value.map((t) => {
+      if (!ids.includes(t.id)) return t
+      const target = completed ? 'completed' : 'active'
+      if (t.status === target) return t
+      return {
+        ...t,
+        status: target,
+        completedAt: completed ? (t.completedAt ?? new Date().toISOString()) : undefined,
+      }
+    })
+    clearSelection()
+  }
+
+  /** 批量删除（复用软删除 + 撤销） */
+  function bulkRemove(ids: string[]) {
+    ids.forEach((id) => removeTodo(id))
+    clearSelection()
+  }
+
+  /** 批量修改优先级 */
+  function bulkSetPriority(ids: string[], priority: TodoPriority) {
+    todos.value = todos.value.map((t) => (ids.includes(t.id) ? { ...t, priority } : t))
+    clearSelection()
+  }
+
+  // ---- 拖拽排序 ----
+  /** 将 movedId 移动到 targetId 之前的位置（按底层数组顺序），并开启手动排序 */
+  function moveTodo(movedId: string, targetId: string) {
+    const list = [...todos.value]
+    const movedIdx = list.findIndex((t) => t.id === movedId)
+    const targetIdx = list.findIndex((t) => t.id === targetId)
+    if (movedIdx < 0 || targetIdx < 0 || movedIdx === targetIdx) return
+    const [moved] = list.splice(movedIdx, 1)
+    list.splice(targetIdx, 0, moved)
+    todos.value = list
+    manualOrder.value = true
   }
 
   return {
@@ -171,9 +283,13 @@ export const useTodoStore = defineStore('todo', () => {
     keyword,
     pendingDeletes,
     latestPendingDelete,
+    selectionMode,
+    selectedIds,
+    manualOrder,
     // getters
     visibleTodos,
     filteredTodos,
+    myDayTodos,
     totalCount,
     activeCount,
     completedCount,
@@ -189,5 +305,17 @@ export const useTodoStore = defineStore('todo', () => {
     togglePriority,
     clearPriority,
     setKeyword,
+    toggleSubtask,
+    addSubtask,
+    removeSubtask,
+    togglePinned,
+    toggleSelectionMode,
+    toggleSelect,
+    clearSelection,
+    getSelectedTodos,
+    bulkSetStatus,
+    bulkRemove,
+    bulkSetPriority,
+    moveTodo,
   }
 })
