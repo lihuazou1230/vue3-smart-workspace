@@ -101,6 +101,36 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # 踩过的坑：某次部署失败后，Pages 那边会残留一条 "in progress" 的部署记录，
+      # 之后每次部署都被直接拒绝（status 400：due to in progress deployment），
+      # 而 GitHub Deployment 列表里看它是 failure——两套账，很容易查半天。
+      # 这里在部署前把残留的 in-progress / queued 记录取消掉，让流程能自愈。
+      - name: 清理卡住的 Pages 部署
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo
+            try {
+              const { data } = await github.request('GET /repos/{owner}/{repo}/pages/deployments', {
+                owner, repo, per_page: 20,
+              })
+              const stuck = data.filter(
+                (d) => d.status === 'deployment_in_progress' || d.status === 'deployment_queued',
+              )
+              for (const d of stuck) {
+                await github.request(
+                  'POST /repos/{owner}/{repo}/pages/deployments/{pages_deployment_id}/cancel',
+                  { owner, repo, pages_deployment_id: d.id },
+                )
+                core.info(`已取消卡住的 Pages 部署 ${d.id}（status=${d.status}）`)
+              }
+              if (stuck.length === 0) core.info('没有卡住的 Pages 部署，继续部署')
+            } catch (error) {
+              // 清理失败不该阻塞本次部署（例如权限不足）：留个 warning，继续往下走
+              core.warning(`清理卡住的部署时出错（不阻塞本次部署）：${error.message}`)
+            }
+
       - name: 发布到 GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

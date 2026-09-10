@@ -456,6 +456,13 @@ Vercel 会自动挑满足条件的版本；不使用 `packageManager` 字段，V
 > 本地想验一遍子路径构建：`$env:BASE_PATH='/vue3-smart-workspace/'; pnpm build; pnpm preview`，
 > 然后访问 `http://localhost:4173/vue3-smart-workspace/todos`——应为 200 且资源路径都带子路径前缀。
 
+**踩坑记录：部署报 `status 400 … due to in progress deployment`**
+
+某次部署失败后，Pages 侧会残留一条 `in progress` 的部署记录，**之后每次部署都被直接拒绝**，
+而 GitHub Deployment 列表里那条显示的是 `failure`（两套账，很容易白查半天）。
+工作流里的「清理卡住的 Pages 部署」步骤会在部署前把这些残留记录取消掉，让流程自愈；
+若那一步也失败（权限不足），可以手动在仓库 **Deployments** 页面取消后再重跑。
+
 ### 上线后的自检清单
 
 - [ ] 首页仪表板能出数字（秒表在计薪时间内会跳动、今日完成度环形图有渲染）
