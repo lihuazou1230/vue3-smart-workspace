@@ -76,6 +76,7 @@ export function describeAuthError(error: unknown): string {
   if (text.includes('already registered') || text.includes('already been registered'))
     return '该邮箱已注册，请直接登录'
   if (text.includes('password should be at least')) return '密码至少 6 位'
+  if (text.includes('should be different from the old password')) return '新密码不能与当前密码相同'
   if (text.includes('unable to validate email') || text.includes('invalid email'))
     return '邮箱格式不正确'
   if (text.includes('signups not allowed') || text.includes('signup is disabled'))
@@ -181,6 +182,45 @@ export async function resendConfirmEmail(email: string, redirectTo?: string): Pr
     })
     if (error) return failure(error)
     return { ok: true, message: '验证邮件已重新发送，请稍候查收' }
+  } catch (error) {
+    return failure(error)
+  }
+}
+
+/**
+ * 发送「重置密码」邮件。
+ *
+ * 邮件里的链接由 Supabase 校验 token 后跳回 `redirectTo`（默认本站 `/reset-password`），
+ * 地址里会带上临时会话凭据，由 `detectSessionInUrl` 自动换成一个 recovery 会话——
+ * 用户于是在「已登录但只能改密码」的状态下打开重置页。
+ *
+ * ⚠️ `redirectTo` 必须出现在 Supabase 的 Redirect URLs 白名单里，否则链接会被拒。
+ */
+export async function sendPasswordReset(email: string, redirectTo?: string): Promise<AuthResult> {
+  try {
+    const client = requireSupabaseClient()
+    const { error } = await client.auth.resetPasswordForEmail(email, {
+      redirectTo:
+        redirectTo ??
+        (typeof location !== 'undefined' ? `${location.origin}/reset-password` : undefined),
+    })
+    if (error) return failure(error)
+    return { ok: true, message: '重置链接已发送，请到邮箱查收（没收到先看垃圾箱）' }
+  } catch (error) {
+    return failure(error)
+  }
+}
+
+/**
+ * 修改当前用户密码（登录状态下改密 / 重置链接换来的 recovery 会话都用它）。
+ * 前端只做长度与一致性校验，强度规则最终由 Supabase 判定。
+ */
+export async function updateUserPassword(password: string): Promise<AuthResult> {
+  try {
+    const client = requireSupabaseClient()
+    const { error } = await client.auth.updateUser({ password })
+    if (error) return failure(error)
+    return { ok: true, message: '密码已更新，可以用新密码登录了' }
   } catch (error) {
     return failure(error)
   }

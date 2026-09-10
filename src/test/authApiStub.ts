@@ -17,12 +17,14 @@ export const authApiStub = {
   describeAuthError: vi.fn<(error: unknown) => string>(),
   getCurrentSessionUser: vi.fn<() => Promise<AuthUser | null>>(),
   resendConfirmEmail: vi.fn<(email: string, redirectTo?: string) => Promise<AuthResult>>(),
+  sendPasswordReset: vi.fn<(email: string, redirectTo?: string) => Promise<AuthResult>>(),
   signInWithGitHub: vi.fn<(redirectTo?: string) => Promise<AuthResult>>(),
   signInWithPassword: vi.fn<(email: string, password: string) => Promise<AuthResult>>(),
   signOutUser: vi.fn<() => Promise<AuthResult>>(),
   signUpWithPassword: vi.fn<(payload: SignUpPayload) => Promise<AuthResult>>(),
   subscribeAuthChanges: vi.fn<(cb: (user: AuthUser | null) => void) => () => void>(),
   updateAvatarMetadata: vi.fn<(avatarUrl: string) => Promise<AuthResult>>(),
+  updateUserPassword: vi.fn<(password: string) => Promise<AuthResult>>(),
 }
 
 /** 每个用例开始前调用：清空调用记录并恢复默认实现（默认全部成功、无会话） */
@@ -33,6 +35,14 @@ export function resetAuthApiStub() {
   authApiStub.resendConfirmEmail.mockResolvedValue({
     ok: true,
     message: '验证邮件已重新发送，请稍候查收',
+  })
+  authApiStub.sendPasswordReset.mockResolvedValue({
+    ok: true,
+    message: '重置链接已发送，请到邮箱查收（没收到先看垃圾箱）',
+  })
+  authApiStub.updateUserPassword.mockResolvedValue({
+    ok: true,
+    message: '密码已更新，可以用新密码登录了',
   })
   authApiStub.signInWithGitHub.mockResolvedValue({ ok: true, message: '正在跳转 GitHub 授权…' })
   authApiStub.signInWithPassword.mockResolvedValue({ ok: true, message: '登录成功' })

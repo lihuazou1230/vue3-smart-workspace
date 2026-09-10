@@ -1,17 +1,19 @@
-﻿import { computed, ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import { defineStore } from 'pinia'
 
 import {
   describeAuthError,
   getCurrentSessionUser,
+  resendConfirmEmail,
+  sendPasswordReset,
   signInWithGitHub,
   signInWithPassword,
   signOutUser,
-  resendConfirmEmail,
   signUpWithPassword,
   subscribeAuthChanges,
   updateAvatarMetadata,
+  updateUserPassword,
 } from '@/api/auth'
 import { isSupabaseConfigured } from '@/api/supabase'
 import type { AuthMode, AuthResult, AuthStatus, AuthUser, SignUpPayload } from '@/types/auth'
@@ -127,6 +129,20 @@ export const useAuthStore = defineStore('auth', () => {
     return result
   }
 
+  /** 发送重置密码邮件（忘记密码） */
+  async function sendResetEmail(email: string): Promise<AuthResult> {
+    const result = await sendPasswordReset(email.trim())
+    if (!result.ok) lastError.value = result.message
+    return result
+  }
+
+  /** 修改密码：登录状态下改密、或点重置链接换来的 recovery 会话都用它 */
+  async function changePassword(password: string): Promise<AuthResult> {
+    const result = await updateUserPassword(password)
+    if (!result.ok) lastError.value = result.message
+    return result
+  }
+
   /** 退出登录：清空本地用户态（任务本地缓存由 todoStore 负责清理） */
   async function signOut(): Promise<AuthResult> {
     const result = await signOutUser()
@@ -192,6 +208,8 @@ export const useAuthStore = defineStore('auth', () => {
     signUp,
     signInWithGithub,
     resendConfirm,
+    sendResetEmail,
+    changePassword,
     signOut,
     refreshUser,
     setAvatarUrl,

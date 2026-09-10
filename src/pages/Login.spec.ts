@@ -322,6 +322,76 @@ describe('Login 页', () => {
     })
   })
 
+  describe('忘记密码', () => {
+    it('登录页有「忘记密码？」入口，点了切到重置模式（只剩邮箱字段）', async () => {
+      const { wrapper } = await mountLogin()
+
+      const link = wrapper.find('[data-testid="login-forgot-password"]')
+      expect(link.exists()).toBe(true)
+      await link.trigger('click')
+
+      expect(wrapper.text()).toContain('忘记密码')
+      expect(wrapper.find('[data-testid="login-email"]').exists()).toBe(true)
+      // 重置模式不需要密码/确认密码/GitHub 入口
+      expect(wrapper.find('[data-testid="login-password"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="login-github"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="login-tab-signup"]').exists()).toBe(false)
+      // 也不需要输入密码就能提交
+      expect(wrapper.find('[data-testid="login-submit"]').text()).toContain('发送重置邮件')
+    })
+
+    it('邮箱不合法：本地校验拦住，不发请求', async () => {
+      const { wrapper } = await mountLogin()
+      await wrapper.find('[data-testid="login-forgot-password"]').trigger('click')
+      await fill(wrapper, { email: 'not-an-email' })
+
+      await wrapper.find('form').trigger('submit')
+
+      expect(wrapper.find('[data-testid="login-error-email"]').text()).toBe('邮箱格式不正确')
+      expect(authApiStub.sendPasswordReset).not.toHaveBeenCalled()
+    })
+
+    it('提交成功：调用发信接口、显示已发送说明并进入 60 秒冷却', async () => {
+      const { wrapper } = await mountLogin()
+      await wrapper.find('[data-testid="login-forgot-password"]').trigger('click')
+      await fill(wrapper, { email: 'zhang@example.com' })
+
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+
+      expect(authApiStub.sendPasswordReset).toHaveBeenCalledWith('zhang@example.com')
+      expect(wrapper.find('[data-testid="login-reset-sent"]').text()).toContain('zhang@example.com')
+      const submit = wrapper.find('[data-testid="login-submit"]')
+      expect(submit.attributes('disabled')).toBeDefined()
+      expect(submit.text()).toContain('60s')
+    })
+
+    it('发信失败：展示服务端文案（例如收件邮箱不存在）', async () => {
+      authApiStub.sendPasswordReset.mockResolvedValue({
+        ok: false,
+        message: '重置密码邮件发送失败：请确认这个邮箱真实存在且能收信',
+      })
+      const { wrapper } = await mountLogin()
+      await wrapper.find('[data-testid="login-forgot-password"]').trigger('click')
+      await fill(wrapper, { email: 'nobody@example.com' })
+
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="login-feedback"]').text()).toContain('邮箱真实存在')
+      expect(wrapper.find('[data-testid="login-reset-sent"]').exists()).toBe(false)
+    })
+
+    it('可以返回登录模式', async () => {
+      const { wrapper } = await mountLogin()
+      await wrapper.find('[data-testid="login-forgot-password"]').trigger('click')
+      await wrapper.find('[data-testid="login-back-to-signin"]').trigger('click')
+
+      expect(wrapper.find('[data-testid="login-tab-signin"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="login-password"]').exists()).toBe(true)
+    })
+  })
+
   describe('GitHub OAuth', () => {
     it('服务端开启了 GitHub 时按钮可见', async () => {
       const { wrapper } = await mountLogin()

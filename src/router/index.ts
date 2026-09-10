@@ -38,6 +38,13 @@ export const routes: RouteRecordRaw[] = [
     meta: { public: true, title: '登录' },
   },
   {
+    // 重置密码落地页：邮件里的链接校验完 token 会带临时凭据跳到这里（不套布局）
+    path: '/reset-password',
+    name: 'resetPassword',
+    component: () => import('@/pages/ResetPassword.vue'),
+    meta: { public: true, title: '重置密码' },
+  },
+  {
     path: '/',
     component: DefaultLayout,
     children: [

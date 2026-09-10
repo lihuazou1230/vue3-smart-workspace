@@ -8,12 +8,14 @@ const api = vi.hoisted(() => ({
   describeAuthError: vi.fn<(error: unknown) => string>(),
   getCurrentSessionUser: vi.fn<() => Promise<AuthUser | null>>(),
   resendConfirmEmail: vi.fn<(email: string, redirectTo?: string) => Promise<AuthResult>>(),
+  sendPasswordReset: vi.fn<(email: string, redirectTo?: string) => Promise<AuthResult>>(),
   signInWithGitHub: vi.fn<(redirectTo?: string) => Promise<AuthResult>>(),
   signInWithPassword: vi.fn<(email: string, password: string) => Promise<AuthResult>>(),
   signOutUser: vi.fn<() => Promise<AuthResult>>(),
   signUpWithPassword: vi.fn<(payload: SignUpPayload) => Promise<AuthResult>>(),
   subscribeAuthChanges: vi.fn<(cb: (user: AuthUser | null) => void) => () => void>(),
   updateAvatarMetadata: vi.fn<(avatarUrl: string) => Promise<AuthResult>>(),
+  updateUserPassword: vi.fn<(password: string) => Promise<AuthResult>>(),
 }))
 
 const supabase = vi.hoisted(() => ({ isSupabaseConfigured: vi.fn(() => true) }))
@@ -44,6 +46,14 @@ describe('authStore', () => {
     api.resendConfirmEmail.mockResolvedValue({
       ok: true,
       message: '验证邮件已重新发送，请稍候查收',
+    })
+    api.sendPasswordReset.mockResolvedValue({
+      ok: true,
+      message: '重置链接已发送，请到邮箱查收（没收到先看垃圾箱）',
+    })
+    api.updateUserPassword.mockResolvedValue({
+      ok: true,
+      message: '密码已更新，可以用新密码登录了',
     })
     api.subscribeAuthChanges.mockReturnValue(vi.fn())
     api.signInWithPassword.mockResolvedValue({ ok: true, message: '登录成功' })
@@ -206,6 +216,33 @@ describe('authStore', () => {
     const result = await store.resendConfirm('zhang@example.com')
     expect(result.ok).toBe(false)
     expect(store.lastError).toBe('操作过于频繁，请稍后再试')
+  })
+
+  it('忘记密码：发送重置邮件（去空格）并透传失败文案', async () => {
+    const store = useAuthStore()
+    await store.init()
+
+    const result = await store.sendResetEmail('  zhang@example.com ')
+    expect(result.ok).toBe(true)
+    expect(api.sendPasswordReset).toHaveBeenCalledWith('zhang@example.com')
+
+    api.sendPasswordReset.mockResolvedValue({ ok: false, message: '重置密码邮件发送失败' })
+    const failed = await store.sendResetEmail('zhang@example.com')
+    expect(failed.ok).toBe(false)
+    expect(store.lastError).toBe('重置密码邮件发送失败')
+  })
+
+  it('修改密码：调用 updateUser 并返回结果', async () => {
+    const store = useAuthStore()
+    await store.init()
+
+    const result = await store.changePassword('newpw123456')
+    expect(result.ok).toBe(true)
+    expect(api.updateUserPassword).toHaveBeenCalledWith('newpw123456')
+
+    api.updateUserPassword.mockResolvedValue({ ok: false, message: '新密码不能与当前密码相同' })
+    expect((await store.changePassword('same')).ok).toBe(false)
+    expect(store.lastError).toBe('新密码不能与当前密码相同')
   })
 
   it('退出登录：无论云端结果如何本地都清空（避免卡在疑似登录态）', async () => {

@@ -177,7 +177,7 @@ describe('路由守卫', () => {
 })
 
 describe('路由表', () => {
-  it('四个受保护页面 + 一个公开登录页', () => {
+  it('四个受保护页面 + 两个公开页（登录 / 重置密码）', () => {
     const router = createRouter({ history: createMemoryHistory(), routes })
     const names = router.getRoutes().map((route) => route.name)
     expect(names).toContain('dashboard')
@@ -185,8 +185,11 @@ describe('路由表', () => {
     expect(names).toContain('stats')
     expect(names).toContain('settings')
     expect(names).toContain('login')
+    expect(names).toContain('resetPassword')
 
     expect(router.resolve('/login').meta.public).toBe(true)
+    // 重置页必须公开：否则守卫会在 recovery 凭据被处理前就把用户踢回登录页
+    expect(router.resolve('/reset-password').meta.public).toBe(true)
     expect(router.resolve('/todos').meta.public).toBeUndefined()
     expect(router.resolve('/todos').meta.title).toBe('任务')
   })

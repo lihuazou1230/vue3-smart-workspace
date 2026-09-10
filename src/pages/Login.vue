@@ -33,7 +33,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-type Tab = 'signIn' | 'signUp'
+type Tab = 'signIn' | 'signUp' | 'reset'
 const tab = ref<Tab>('signIn')
 
 const email = ref('')
@@ -90,6 +90,9 @@ function switchTab(next: Tab) {
   tab.value = next
   formErrors.value = {}
   feedback.value = null
+  // 切走就清掉上一种模式留下的提示，避免「注册待验证」面板出现在忘记密码页
+  pendingConfirmEmail.value = ''
+  resetSentTo.value = ''
 }
 
 /** 表单校验（纯函数），返回是否通过 */
@@ -98,6 +101,12 @@ function validateForm(): boolean {
 
   const emailCheck = validateEmail(email.value)
   if (!emailCheck.valid) errors.email = emailCheck.message ?? '邮箱格式不正确'
+
+  // 忘记密码只需要邮箱（此时还没有密码可校验）
+  if (tab.value === 'reset') {
+    formErrors.value = errors
+    return Object.keys(errors).length === 0
+  }
 
   const passwordCheck = validatePassword(password.value)
   if (!passwordCheck.valid) errors.password = passwordCheck.message ?? '密码不符合要求'
@@ -114,8 +123,33 @@ function validateForm(): boolean {
   return Object.keys(errors).length === 0
 }
 
+/** 忘记密码：发重置邮件（成功后同样进入 60 秒冷却，Supabase 对发信有限流） */
+const resetSentTo = ref('')
+
+async function sendReset() {
+  if (resendCooldown.value > 0) return
+  feedback.value = null
+  if (!validateForm()) return
+
+  submitting.value = true
+  try {
+    const result = await authStore.sendResetEmail(email.value)
+    feedback.value = { ok: result.ok, message: result.message }
+    if (result.ok) {
+      resetSentTo.value = email.value.trim()
+      startResendCooldown(60)
+    }
+  } finally {
+    submitting.value = false
+  }
+}
+
 async function submit() {
   feedback.value = null
+  if (tab.value === 'reset') {
+    await sendReset()
+    return
+  }
   if (!validateForm()) return
 
   submitting.value = true
@@ -219,8 +253,11 @@ onMounted(async () => {
           </BaseButton>
         </div>
 
-        <!-- Tab 切换 -->
-        <div class="mb-5 flex gap-1 rounded-full bg-slate-100 p-1 dark:bg-slate-800">
+        <!-- Tab 切换（忘记密码模式隐藏，改用标题+返回链接） -->
+        <div
+          v-if="tab !== 'reset'"
+          class="mb-5 flex gap-1 rounded-full bg-slate-100 p-1 dark:bg-slate-800"
+        >
           <button
             type="button"
             data-testid="login-tab-signin"
@@ -247,6 +284,14 @@ onMounted(async () => {
           >
             注册
           </button>
+        </div>
+
+        <!-- 忘记密码：说明 + 返回登录 -->
+        <div v-if="tab === 'reset'" class="mb-5">
+          <h2 class="text-base font-semibold text-slate-800 dark:text-slate-100">忘记密码</h2>
+          <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            填入注册时用的邮箱，我们会发一封重置链接（通常 1~2 分钟到达，没收到先看垃圾箱）
+          </p>
         </div>
 
         <form class="space-y-4" novalidate @submit.prevent="submit">
@@ -285,11 +330,22 @@ onMounted(async () => {
             </p>
           </div>
 
-          <!-- 密码 -->
-          <div>
-            <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-              密码
-            </label>
+          <!-- 密码（忘记密码模式不需要） -->
+          <div v-if="tab !== 'reset'">
+            <div class="mb-1 flex items-center justify-between">
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-300">
+                密码
+              </label>
+              <button
+                v-if="tab === 'signIn'"
+                type="button"
+                data-testid="login-forgot-password"
+                class="text-xs text-[var(--el-color-primary)] underline-offset-2 hover:underline"
+                @click="switchTab('reset')"
+              >
+                忘记密码？
+              </button>
+            </div>
             <BaseInput
               v-model="password"
               data-testid="login-password"
@@ -331,14 +387,43 @@ onMounted(async () => {
             native-type="submit"
             variant="primary"
             block
-            :disabled="submitting"
+            :disabled="submitting || (tab === 'reset' && resendCooldown > 0)"
           >
-            {{ tab === 'signIn' ? '登录' : '注册并登录' }}
+            {{
+              tab === 'reset'
+                ? resendCooldown > 0
+                  ? `重新发送（${resendCooldown}s 后可再发）`
+                  : '发送重置邮件'
+                : tab === 'signIn'
+                  ? '登录'
+                  : '注册并登录'
+            }}
           </BaseButton>
+
+          <!-- 忘记密码：返回登录 -->
+          <button
+            v-if="tab === 'reset'"
+            type="button"
+            data-testid="login-back-to-signin"
+            class="w-full text-center text-xs text-slate-500 underline-offset-2 hover:underline dark:text-slate-400"
+            @click="switchTab('signIn')"
+          >
+            ← 返回登录
+          </button>
         </form>
 
+        <!-- 重置邮件已发送：说明 + 冷却提示 -->
+        <div
+          v-if="tab === 'reset' && resetSentTo"
+          data-testid="login-reset-sent"
+          class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
+        >
+          重置链接已发送到 <strong>{{ resetSentTo }}</strong
+          >，点邮件里的链接即可设置新密码（有效期约 1 小时，过期可再发一次）。
+        </div>
+
         <!-- GitHub OAuth：只在服务端确实开启时才渲染（否则点了只会报 provider is not enabled） -->
-        <template v-if="githubEnabled !== false">
+        <template v-if="tab !== 'reset' && githubEnabled !== false">
           <div class="my-5 flex items-center gap-3">
             <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></span>
             <span class="text-xs text-slate-400">或</span>
@@ -356,7 +441,7 @@ onMounted(async () => {
         </template>
 
         <p
-          v-else
+          v-else-if="githubEnabled === false"
           data-testid="login-github-disabled"
           class="mt-5 text-center text-xs leading-relaxed text-slate-400 dark:text-slate-500"
         >

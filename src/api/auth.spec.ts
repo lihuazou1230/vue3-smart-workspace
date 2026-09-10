@@ -26,6 +26,7 @@ import {
   emailPrefix,
   getCurrentSessionUser,
   resendConfirmEmail,
+  sendPasswordReset,
   signInWithGitHub,
   signInWithPassword,
   signOutUser,
@@ -33,6 +34,7 @@ import {
   subscribeAuthChanges,
   toAuthUser,
   updateAvatarMetadata,
+  updateUserPassword,
 } from './auth'
 
 /** 造一个 auth 桩：默认全部成功，用例按需覆盖具体方法 */
@@ -46,6 +48,7 @@ function fakeClient(overrides: Record<string, unknown> = {}) {
     })),
     signOut: vi.fn(async () => ({ data: {}, error: null as unknown })),
     resend: vi.fn(async () => ({ data: {}, error: null as unknown })),
+    resetPasswordForEmail: vi.fn(async () => ({ data: {}, error: null as unknown })),
     getSession: vi.fn(async () => ({ data: { session: null }, error: null as unknown })),
     updateUser: vi.fn(async () => ({ data: { user: {} }, error: null as unknown })),
     onAuthStateChange: vi.fn<
@@ -325,6 +328,59 @@ describe('认证动作（已配置）', () => {
     const result = await resendConfirmEmail('zhang@example.com')
     expect(result.ok).toBe(false)
     expect(result.message).toContain('.env.local')
+  })
+
+  it('忘记密码：调用 resetPasswordForEmail 并带上回跳地址', async () => {
+    const result = await sendPasswordReset(
+      'zhang@example.com',
+      'https://app.example.com/reset-password',
+    )
+
+    expect(result).toMatchObject({ ok: true })
+    const client = holder.client as ReturnType<typeof fakeClient>
+    expect(client.auth.resetPasswordForEmail).toHaveBeenCalledWith('zhang@example.com', {
+      redirectTo: 'https://app.example.com/reset-password',
+    })
+    expect(result.message).toContain('邮箱')
+  })
+
+  it('忘记密码：失败时给出中文文案（如发信失败）', async () => {
+    holder.client = fakeClient({
+      resetPasswordForEmail: vi.fn(async () => ({
+        data: {},
+        error: { message: 'Error sending recovery email' },
+      })),
+    })
+
+    const result = await sendPasswordReset('zhang@example.com')
+    expect(result.ok).toBe(false)
+    expect(result.message).toContain('邮箱真实存在')
+  })
+
+  it('修改密码：调用 updateUser({ password })', async () => {
+    const result = await updateUserPassword('newpw123456')
+
+    expect(result).toMatchObject({ ok: true })
+    const client = holder.client as ReturnType<typeof fakeClient>
+    expect(client.auth.updateUser).toHaveBeenCalledWith({ password: 'newpw123456' })
+  })
+
+  it('修改密码失败：弱密码/与旧密码相同都翻译成中文', async () => {
+    holder.client = fakeClient({
+      updateUser: vi.fn(async () => ({
+        data: {},
+        error: { message: 'New password should be different from the old password' },
+      })),
+    })
+    expect((await updateUserPassword('old')).message).toBe('新密码不能与当前密码相同')
+
+    holder.client = fakeClient({
+      updateUser: vi.fn(async () => ({
+        data: {},
+        error: { message: 'Password should be at least 6 characters' },
+      })),
+    })
+    expect((await updateUserPassword('123')).message).toBe('密码至少 6 位')
   })
 
   it('更新头像元数据成功后透传调用', async () => {
