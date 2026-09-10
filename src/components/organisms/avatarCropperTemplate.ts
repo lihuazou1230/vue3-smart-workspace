@@ -14,10 +14,14 @@
  *
  * `aspect-ratio="1"` 保证导出素材是正方形（圆形头像的素材就是正方形）；
  * 圆形范围由组件里的白色引导环提示，纯视觉、不参与导出。
+ *
+ * 另外两个关键属性保证「圆永远不超出图片」：
+ * - `initial-fit="cover"`：图片初始就铺满裁剪区（而不是等比缩小后留出空白边）
+ * - `min-fit="cover"`：滚轮缩小时不许缩到比裁剪区还小，从根上避免"圈外是空白"
  */
 export const AVATAR_CROPPER_TEMPLATE = `
 <cropper-canvas>
-  <cropper-image rotatable scalable skewable translatable></cropper-image>
+  <cropper-image rotatable scalable skewable translatable initial-fit="cover" min-fit="cover"></cropper-image>
   <cropper-handle action="select" plain></cropper-handle>
   <cropper-selection initial-coverage="0.8" aspect-ratio="1">
     <cropper-handle action="move" plain theme-color="transparent"></cropper-handle>

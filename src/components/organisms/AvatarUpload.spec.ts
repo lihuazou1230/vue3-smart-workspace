@@ -12,6 +12,11 @@ import avatarUploadSource from './AvatarUpload.vue?raw'
 const cropper = vi.hoisted(() => ({
   instances: [] as Array<{ element: unknown; options: unknown; destroyed: boolean }>,
   selection: null as unknown,
+  /** 画布桩：用来拿到 actionend 监听器 */
+  canvas: null as unknown,
+  /** 图片桩：getBoundingClientRect 可被用例改写，$move 记录平移量 */
+  imageMove: vi.fn(),
+  imageRect: { left: 0, top: 0, right: 0, bottom: 0 },
 }))
 
 vi.mock('cropperjs', () => ({
@@ -26,6 +31,15 @@ vi.mock('cropperjs', () => ({
     }
     getCropperSelection() {
       return cropper.selection
+    }
+    getCropperCanvas() {
+      return cropper.canvas
+    }
+    getCropperImage() {
+      return {
+        getBoundingClientRect: () => cropper.imageRect,
+        $move: cropper.imageMove,
+      }
     }
     destroy() {
       this.destroyed = true
@@ -102,7 +116,9 @@ describe('AvatarUpload', () => {
     vi.clearAllMocks()
     cropper.instances = []
     toCanvas.mockClear()
-    cropper.selection = { $toCanvas: toCanvas }
+    cropper.selection = { $toCanvas: toCanvas, x: 30, y: 30, width: 240, height: 240 }
+    cropper.canvas = { addEventListener: vi.fn() }
+    cropper.imageRect = { left: 0, top: 0, right: 300, bottom: 300 }
     avatar.displayUrl = ref('')
     avatar.saving = ref(false)
     avatar.fallbackInitial = ref('张三')
@@ -117,6 +133,27 @@ describe('AvatarUpload', () => {
     })
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })
   })
+
+  /** 取 actionend 监听器（组件挂在画布上），并让舞台有可用的排版矩形 */
+  function grabActionEndHandler(wrapper: Awaited<ReturnType<typeof mountDialog>>) {
+    const stage = wrapper.find('[data-testid="avatar-crop-area"]').element
+    vi.spyOn(stage, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      right: 300,
+      bottom: 300,
+      width: 300,
+      height: 300,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect)
+
+    const register = (cropper.canvas as { addEventListener: ReturnType<typeof vi.fn> })
+      .addEventListener
+    const call = register.mock.calls.find(([type]) => type === 'actionend')
+    return call?.[1] as (() => void) | undefined
+  }
 
   it('无头像时展示姓名首字母兜底', async () => {
     const wrapper = await mountDialog()
@@ -188,6 +225,9 @@ describe('AvatarUpload', () => {
     expect(AVATAR_CROPPER_TEMPLATE).toContain('action="move" plain theme-color="transparent"')
     // 1:1 选区仍在（导出素材必须是正方形）
     expect(AVATAR_CROPPER_TEMPLATE).toContain('aspect-ratio="1"')
+    // 图片铺满裁剪区、且不许缩到比裁剪区还小 → 圆不会盖到空白
+    expect(AVATAR_CROPPER_TEMPLATE).toContain('initial-fit="cover"')
+    expect(AVATAR_CROPPER_TEMPLATE).toContain('min-fit="cover"')
   })
 
   it('裁剪区样式必须给 cropper-canvas 显式尺寸（否则画布塌成 0，图片会以原始尺寸飘在左上角）', () => {
@@ -195,6 +235,32 @@ describe('AvatarUpload', () => {
     expect(avatarUploadSource).toMatch(
       /\.avatar-crop-stage\s+:deep\(cropper-canvas\)[\s\S]{0,220}height:\s*100%/,
     )
+  })
+
+  it('拖动结束后把图片拉回裁剪区（保证圆不超出图片）', async () => {
+    // 图片被拖到右边：左边缘 60 > 选区左边 30
+    cropper.imageRect = { left: 60, top: 0, right: 360, bottom: 300 }
+    const wrapper = await mountDialog()
+    await chooseFile(wrapper, fileOf('me.png', 'image/png', 1024))
+    await wrapper.vm.$nextTick()
+
+    const handler = grabActionEndHandler(wrapper)
+    expect(handler).toBeTypeOf('function')
+    handler?.()
+
+    expect(cropper.imageMove).toHaveBeenCalledWith(-30, 0)
+  })
+
+  it('图片本就覆盖裁剪区：不做多余平移', async () => {
+    cropper.imageRect = { left: 0, top: 0, right: 300, bottom: 300 }
+    const wrapper = await mountDialog()
+    await chooseFile(wrapper, fileOf('me.png', 'image/png', 1024))
+    await wrapper.vm.$nextTick()
+
+    const handler = grabActionEndHandler(wrapper)
+    handler?.()
+
+    expect(cropper.imageMove).not.toHaveBeenCalled()
   })
 
   it('没选图时保存按钮禁用，点了也不会发请求', async () => {

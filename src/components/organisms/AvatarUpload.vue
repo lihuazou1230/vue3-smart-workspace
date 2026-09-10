@@ -20,6 +20,7 @@ import BaseButton from '@/components/atoms/BaseButton.vue'
 import { AVATAR_CROPPER_TEMPLATE } from '@/components/organisms/avatarCropperTemplate'
 import { useAvatar } from '@/composables/useAvatar'
 import { AVATAR_SIZE, AVATAR_WEBP_QUALITY } from '@/types/auth'
+import { clampOffset, isUsableRect } from '@/utils/avatarCropFit'
 import { validateAvatarFile } from '@/utils/avatarImage'
 
 /** 对话框开关（v-model） */
@@ -80,7 +81,7 @@ async function onFileChange(event: Event) {
 
   resetCrop()
   sourceUrl.value = URL.createObjectURL(file)
-  setMessage('拖动方框选择范围，滚轮缩放图片；圆形区域就是头像最终露出的部分', 'info')
+  setMessage('拖动图片调整位置、滚轮缩放；圆形区域就是头像最终露出的部分', 'info')
 
   // 等 <img> 渲染出来再挂 cropper
   await nextTick()
@@ -89,6 +90,40 @@ async function onFileChange(event: Event) {
     template: AVATAR_CROPPER_TEMPLATE,
     container: cropContainer.value ?? undefined,
   })
+
+  // 拖动结束后把图片拉回，保证裁剪区始终被图片覆盖（圆不超出图片）
+  cropper.getCropperCanvas()?.addEventListener('actionend', keepImageOverSelection)
+}
+
+/**
+ * 拖动结束后校正：用纯函数算位移，再交给 cropperjs 平移图片。
+ *
+ * 为什么还要这一步：`initial-fit/min-fit="cover"` 只挡住了"初始"和"缩小"两种情况，
+ * 用户可以横向把图片拖到边上，露出空白 —— 那样圆形裁剪区就会盖到空白区域，
+ * 导出的头像四角也就成了透明的。
+ *
+ * happy-dom 不做排版（所有 rect 都是 0），所以用 isUsableRect 提前跳过，测试里是安全空转。
+ */
+function keepImageOverSelection() {
+  const stage = cropContainer.value
+  const image = cropper?.getCropperImage()
+  const selection = cropper?.getCropperSelection()
+  if (!stage || !image || !selection) return
+
+  const canvasRect = stage.getBoundingClientRect()
+  const imageRect = image.getBoundingClientRect()
+  if (!isUsableRect(canvasRect) || !isUsableRect(imageRect)) return
+
+  // 选区坐标是画布局部坐标，换算到视口坐标后再和图片的渲染矩形比较
+  const selectionRect = {
+    left: canvasRect.left + selection.x,
+    top: canvasRect.top + selection.y,
+    right: canvasRect.left + selection.x + selection.width,
+    bottom: canvasRect.top + selection.y + selection.height,
+  }
+
+  const { x, y } = clampOffset(imageRect, selectionRect)
+  if (x !== 0 || y !== 0) image.$move(x, y)
 }
 
 /** canvas → Blob（优先 webp，浏览器不支持时退回 png） */
