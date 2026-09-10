@@ -13,13 +13,13 @@
  *    没有云配置就永远登不进去，不能让用户卡死在这个页面
  */
 
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseInput from '@/components/atoms/BaseInput.vue'
 import { useAuthStore } from '@/stores/authStore'
-import { SUPABASE_SETUP_HINT, checkSupabaseConnection } from '@/api/supabase'
+import { SUPABASE_SETUP_HINT, checkSupabaseConnection, fetchAuthProviders } from '@/api/supabase'
 import type { ConnectionCheck } from '@/api/supabase'
 import {
   validateDisplayName,
@@ -128,6 +128,16 @@ async function testConnection() {
     checking.value = false
   }
 }
+
+// ---- 按服务端实际开启的登录方式来渲染按钮 ----
+/** null = 还没问到（保持按钮可见，不因一次网络抖动把功能藏起来） */
+const githubEnabled = ref<boolean | null>(null)
+
+onMounted(async () => {
+  if (isLocalMode.value) return
+  const providers = await fetchAuthProviders()
+  if (providers) githubEnabled.value = providers.github
+})
 </script>
 
 <template>
@@ -282,21 +292,35 @@ async function testConnection() {
           </BaseButton>
         </form>
 
-        <!-- GitHub OAuth -->
-        <div class="my-5 flex items-center gap-3">
-          <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></span>
-          <span class="text-xs text-slate-400">或</span>
-          <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></span>
-        </div>
-        <BaseButton
-          data-testid="login-github"
-          variant="secondary"
-          block
-          :disabled="submitting"
-          @click="signInWithGithub"
+        <!-- GitHub OAuth：只在服务端确实开启时才渲染（否则点了只会报 provider is not enabled） -->
+        <template v-if="githubEnabled !== false">
+          <div class="my-5 flex items-center gap-3">
+            <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></span>
+            <span class="text-xs text-slate-400">或</span>
+            <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></span>
+          </div>
+          <BaseButton
+            data-testid="login-github"
+            variant="secondary"
+            block
+            :disabled="submitting"
+            @click="signInWithGithub"
+          >
+            <span class="mr-2">🐙</span>使用 GitHub 登录
+          </BaseButton>
+        </template>
+
+        <p
+          v-else
+          data-testid="login-github-disabled"
+          class="mt-5 text-center text-xs leading-relaxed text-slate-400 dark:text-slate-500"
         >
-          <span class="mr-2">🐙</span>使用 GitHub 登录
-        </BaseButton>
+          GitHub 登录未开启：可在 Supabase 控制台
+          <code class="rounded bg-slate-100 px-1 dark:bg-slate-800"
+            >Authentication → Providers</code
+          >
+          打开（需先创建 GitHub OAuth App）
+        </p>
 
         <!-- 反馈 -->
         <p

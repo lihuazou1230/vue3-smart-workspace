@@ -4,6 +4,7 @@ import {
   SUPABASE_SETUP_HINT,
   SupabaseUnavailableError,
   checkSupabaseConnection,
+  fetchAuthProviders,
   getSupabaseClient,
   isSupabaseConfigured,
   readSupabaseEnv,
@@ -178,6 +179,64 @@ describe('连接自检 checkSupabaseConnection', () => {
 
     expect(result.ok).toBe(false)
     expect(result.message).toContain('本地模式')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('读取服务端开启的登录方式 fetchAuthProviders', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://demo.supabase.co')
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key')
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('按 /auth/v1/settings 的 external 字段返回', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ external: { email: true, github: false } }),
+      })),
+    )
+
+    expect(await fetchAuthProviders()).toEqual({ email: true, github: false })
+  })
+
+  it('github 开启时返回 true；external 里没写 email 时按开启处理（它是主流程）', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ external: { github: true } }) })),
+    )
+
+    expect(await fetchAuthProviders()).toEqual({ email: true, github: true })
+  })
+
+  it('请求失败 / 抛错都返回 null（调用方按「未知」处理，按钮照常显示）', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 500 })),
+    )
+    expect(await fetchAuthProviders()).toBeNull()
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch')
+      }),
+    )
+    expect(await fetchAuthProviders()).toBeNull()
+  })
+
+  it('未配置 Supabase 时不发请求', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', '')
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '')
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(await fetchAuthProviders()).toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
