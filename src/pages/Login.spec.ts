@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -254,6 +254,53 @@ describe('Login 页', () => {
       await nextTick()
 
       expect(wrapper.find('[data-testid="login-card"]').exists()).toBe(true)
+    })
+  })
+
+  describe('连接自检（登录失败时区分「地址错」与「密钥错」）', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('已配置 Supabase 时给出自检入口，点击后显示结论', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({ ok: false, status: 401 })),
+      )
+      const { wrapper } = await mountLogin()
+
+      const trigger = wrapper.find('[data-testid="login-connection-test"]')
+      expect(trigger.exists()).toBe(true)
+
+      await trigger.trigger('click')
+      await flushPromises()
+
+      const result = wrapper.find('[data-testid="login-connection-result"]')
+      expect(result.text()).toContain('密钥无效')
+      expect(result.text()).toContain('401')
+    })
+
+    it('地址连不上时提示多半是 Project URL 抄错，并摊出请求地址', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => {
+          throw new TypeError('Failed to fetch')
+        }),
+      )
+      const { wrapper } = await mountLogin()
+
+      await wrapper.find('[data-testid="login-connection-test"]').trigger('click')
+      await flushPromises()
+
+      const result = wrapper.find('[data-testid="login-connection-result"]')
+      expect(result.text()).toContain('Project URL')
+      expect(result.text()).toContain('https://demo.supabase.co/auth/v1/health')
+    })
+
+    it('本地模式没有可测的目标，不显示入口', async () => {
+      configureSupabase(false)
+      const { wrapper } = await mountLogin()
+      expect(wrapper.find('[data-testid="login-connection-test"]').exists()).toBe(false)
     })
   })
 })

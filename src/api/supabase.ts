@@ -89,3 +89,65 @@ export function resetSupabaseClient(): void {
   client = null
   clientFingerprint = ''
 }
+
+/** 连接自检结果 */
+export interface ConnectionCheck {
+  ok: boolean
+  /** 面向用户的一句话结论 */
+  message: string
+  /** 技术细节（请求地址 / HTTP 状态），排查时有用 */
+  detail: string
+}
+
+/**
+ * 连接自检：直接打 Auth 服务的健康检查接口。
+ *
+ * 为什么需要它：`fetch` 抛出的 `TypeError: Failed to fetch` 会把
+ * 「域名拼错 / DNS 解析不了 / 被网络拦截 / 密钥无效」全糊成一句「网络不可用」，
+ * 用户完全没法自查。这里把「请求地址 + HTTP 状态」摊开，
+ * 一眼就能区分是地址写错还是密钥不对。
+ */
+export async function checkSupabaseConnection(timeoutMs = 8000): Promise<ConnectionCheck> {
+  const { url, anonKey } = readSupabaseEnv()
+  if (!isSupabaseConfigured()) {
+    return { ok: false, message: '未配置 Supabase（本地模式）', detail: SUPABASE_SETUP_HINT }
+  }
+
+  const target = `${url}/auth/v1/health`
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(target, {
+      headers: { apikey: anonKey },
+      signal: controller.signal,
+    })
+
+    if (response.ok) {
+      return { ok: true, message: '连接正常：Auth 服务可达', detail: target }
+    }
+    if (response.status === 401) {
+      return {
+        ok: false,
+        message: '地址通了，但密钥无效：请回 API Keys 页重新复制完整的 publishable key',
+        detail: `${target} → HTTP 401`,
+      }
+    }
+    return {
+      ok: false,
+      message: `服务返回异常状态 HTTP ${response.status}`,
+      detail: `${target} → HTTP ${response.status}`,
+    }
+  } catch (error) {
+    const timedOut = (error as Error)?.name === 'AbortError'
+    return {
+      ok: false,
+      message: timedOut
+        ? '请求超时：地址可能不对，或当前网络访问不了 Supabase'
+        : '连不上这个地址：多半是 Project URL 抄错了（域名不存在 / DNS 解析不了）或被网络拦截',
+      detail: `请求地址：${target}`,
+    }
+  } finally {
+    clearTimeout(timer)
+  }
+}

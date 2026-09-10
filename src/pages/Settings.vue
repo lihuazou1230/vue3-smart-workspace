@@ -15,7 +15,8 @@ import AvatarUpload from '@/components/organisms/AvatarUpload.vue'
 import SettingsPanel from '@/components/organisms/SettingsPanel.vue'
 import BaseBadge from '@/components/atoms/BaseBadge.vue'
 import BaseButton from '@/components/atoms/BaseButton.vue'
-import { SUPABASE_SETUP_HINT } from '@/api/supabase'
+import { SUPABASE_SETUP_HINT, checkSupabaseConnection } from '@/api/supabase'
+import type { ConnectionCheck } from '@/api/supabase'
 import { useAvatar } from '@/composables/useAvatar'
 import { useAuthStore } from '@/stores/authStore'
 import { useTodoStore } from '@/stores/todoStore'
@@ -61,6 +62,19 @@ const pendingCount = computed(() => todoStore.syncQueue.length)
 
 async function syncNow() {
   await todoStore.syncNow()
+}
+
+// ---- 连接自检（区分「地址写错」与「密钥不对」） ----
+const checking = ref(false)
+const connectionResult = ref<ConnectionCheck | null>(null)
+
+async function testConnection() {
+  checking.value = true
+  try {
+    connectionResult.value = await checkSupabaseConnection()
+  } finally {
+    checking.value = false
+  }
 }
 </script>
 
@@ -163,12 +177,37 @@ async function syncNow() {
           >
             立即同步
           </BaseButton>
+          <BaseButton
+            data-testid="settings-connection-test"
+            size="sm"
+            variant="secondary"
+            :disabled="checking || authStore.isLocalMode"
+            @click="testConnection"
+          >
+            {{ checking ? '检测中…' : '测试连接' }}
+          </BaseButton>
           <router-link v-if="!authStore.isAuthed" :to="{ name: 'login' }">
             <BaseButton data-testid="settings-sign-in" size="sm" variant="secondary">
               登录 / 注册
             </BaseButton>
           </router-link>
         </div>
+
+        <!-- 连接自检结果：把「地址对不对 / 密钥对不对」分开说清楚 -->
+        <p
+          v-if="connectionResult"
+          data-testid="settings-connection-result"
+          class="rounded-xl border p-3 text-xs leading-relaxed"
+          :class="
+            connectionResult.ok
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+              : 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-900/30 dark:text-rose-200'
+          "
+        >
+          <span class="font-semibold">{{ connectionResult.ok ? '✅' : '❌' }}</span>
+          {{ connectionResult.message }}
+          <code class="mt-1 block break-all opacity-70">{{ connectionResult.detail }}</code>
+        </p>
       </div>
     </section>
 

@@ -19,7 +19,8 @@ import { useRoute, useRouter } from 'vue-router'
 import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseInput from '@/components/atoms/BaseInput.vue'
 import { useAuthStore } from '@/stores/authStore'
-import { SUPABASE_SETUP_HINT } from '@/api/supabase'
+import { SUPABASE_SETUP_HINT, checkSupabaseConnection } from '@/api/supabase'
+import type { ConnectionCheck } from '@/api/supabase'
 import {
   validateDisplayName,
   validateEmail,
@@ -113,6 +114,19 @@ async function signInWithGithub() {
 /** 本地模式：直接进应用（没有云配置时不该把用户挡在门外） */
 function enterLocalMode() {
   void router.push(redirectTarget.value)
+}
+
+// ---- 连接自检：登录失败时先分清「地址写错」还是「密钥不对」 ----
+const checking = ref(false)
+const connectionResult = ref<ConnectionCheck | null>(null)
+
+async function testConnection() {
+  checking.value = true
+  try {
+    connectionResult.value = await checkSupabaseConnection()
+  } finally {
+    checking.value = false
+  }
 }
 </script>
 
@@ -294,6 +308,33 @@ function enterLocalMode() {
         >
           {{ feedback.message }}
         </p>
+
+        <!-- 连接自检：把「网络不可用」拆成可定位的结论 -->
+        <div v-if="!isLocalMode" class="mt-4 border-t border-slate-200 pt-3 dark:border-slate-700">
+          <button
+            type="button"
+            data-testid="login-connection-test"
+            class="text-xs text-slate-500 underline-offset-2 hover:underline disabled:opacity-50 dark:text-slate-400"
+            :disabled="checking"
+            @click="testConnection"
+          >
+            {{ checking ? '检测中…' : '🔌 登录失败？点这里测试与 Supabase 的连接' }}
+          </button>
+          <p
+            v-if="connectionResult"
+            data-testid="login-connection-result"
+            class="mt-2 rounded-xl border p-3 text-xs leading-relaxed"
+            :class="
+              connectionResult.ok
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+                : 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-900/30 dark:text-rose-200'
+            "
+          >
+            <span class="font-semibold">{{ connectionResult.ok ? '✅' : '❌' }}</span>
+            {{ connectionResult.message }}
+            <code class="mt-1 block break-all opacity-70">{{ connectionResult.detail }}</code>
+          </p>
+        </div>
       </section>
 
       <!-- 只在本地模式下给「随便逛逛」出口：配了 Supabase 后点它会被守卫弹回来，等于死链 -->

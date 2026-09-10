@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   SUPABASE_SETUP_HINT,
   SupabaseUnavailableError,
+  checkSupabaseConnection,
   getSupabaseClient,
   isSupabaseConfigured,
   readSupabaseEnv,
@@ -89,5 +90,94 @@ describe('Supabase 配置读取与客户端单例', () => {
 
     expect(second).not.toBe(first)
     expect(createClientMock).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('连接自检 checkSupabaseConnection', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://demo.supabase.co')
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key')
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('正常：打到 /auth/v1/health 且带上 apikey', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await checkSupabaseConnection()
+
+    expect(result.ok).toBe(true)
+    expect(result.message).toContain('连接正常')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://demo.supabase.co/auth/v1/health',
+      expect.objectContaining({ headers: { apikey: 'anon-key' } }),
+    )
+  })
+
+  it('密钥无效（401）：明确指出是密钥问题而不是网络问题', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 401 })),
+    )
+
+    const result = await checkSupabaseConnection()
+
+    expect(result.ok).toBe(false)
+    expect(result.message).toContain('密钥无效')
+    expect(result.detail).toContain('401')
+  })
+
+  it('HTTP 异常状态：原样报出状态码', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 503 })),
+    )
+    const result = await checkSupabaseConnection()
+    expect(result.ok).toBe(false)
+    expect(result.detail).toContain('503')
+  })
+
+  it('域名解析不了（fetch 直接抛错）：提示多半是 Project URL 抄错', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch')
+      }),
+    )
+
+    const result = await checkSupabaseConnection()
+
+    expect(result.ok).toBe(false)
+    expect(result.message).toContain('Project URL')
+    // 把实际请求地址摊出来，方便对着 .env.local 核对
+    expect(result.detail).toContain('https://demo.supabase.co/auth/v1/health')
+  })
+
+  it('超时（AbortError）：提示超时', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw Object.assign(new Error('aborted'), { name: 'AbortError' })
+      }),
+    )
+
+    const result = await checkSupabaseConnection()
+    expect(result.message).toContain('超时')
+  })
+
+  it('未配置时不发请求，直接给配置引导', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', '')
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '')
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await checkSupabaseConnection()
+
+    expect(result.ok).toBe(false)
+    expect(result.message).toContain('本地模式')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })
