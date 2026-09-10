@@ -115,6 +115,23 @@ describe('SidebarNav', () => {
     expect(sidebar.find('[data-testid="avatar-file-input"]').exists()).toBe(false)
   })
 
+  it('设置不在主导航里，而是放在底部独立区', async () => {
+    const { wrapper } = await mountSidebar()
+
+    const nav = wrapper.find('nav[aria-label="主导航"]')
+    expect(nav.find('[data-testid="sidebar-nav-dashboard"]').exists()).toBe(true)
+    expect(nav.find('[data-testid="sidebar-nav-todos"]').exists()).toBe(true)
+    expect(nav.find('[data-testid="sidebar-nav-stats"]').exists()).toBe(true)
+    // 设置属于"配置"，不与内容页混在一起
+    expect(nav.find('[data-testid="sidebar-nav-settings"]').exists()).toBe(false)
+
+    const footer = wrapper.find('[data-testid="sidebar-footer"]')
+    const settings = footer.find('[data-testid="sidebar-nav-settings"]')
+    expect(settings.exists()).toBe(true)
+    expect(settings.attributes('href')).toBe('/settings')
+    expect(settings.text()).toContain('设置')
+  })
+
   it('导航项指向对应路由，当前路由高亮', async () => {
     const { wrapper, router } = await mountSidebar({ path: '/stats' })
 

@@ -83,9 +83,12 @@ describe('DefaultLayout', () => {
     expect(store.keyword).toBe('周报')
   })
 
-  it('设置入口指向 /settings', async () => {
+  it('顶栏不再重复放设置入口（设置统一在侧边栏底部）', async () => {
     const { wrapper } = await mountLayout('/')
-    expect(wrapper.find('a[aria-label="打开设置"]').attributes('href')).toBe('/settings')
+
+    expect(wrapper.find('a[aria-label="打开设置"]').exists()).toBe(false)
+    // 主题切换仍在顶栏
+    expect(wrapper.find('header').text()).toBeDefined()
   })
 
   it('折叠按钮切换侧边栏宽度并记住状态', async () => {

@@ -15,7 +15,7 @@ import { useRouter } from 'vue-router'
 import BaseBadge from '@/components/atoms/BaseBadge.vue'
 import BaseButton from '@/components/atoms/BaseButton.vue'
 import AvatarUpload from '@/components/organisms/AvatarUpload.vue'
-import { NAV_ITEMS } from '@/components/organisms/navItems'
+import { PRIMARY_NAV_ITEMS, SETTINGS_NAV_ITEM } from '@/components/organisms/navItems'
 import { useAvatar } from '@/composables/useAvatar'
 import { useAuthStore } from '@/stores/authStore'
 import { useTodoStore } from '@/stores/todoStore'
@@ -106,10 +106,10 @@ async function handleSignOut() {
       </div>
     </div>
 
-    <!-- 导航 -->
+    <!-- 主导航（内容页） -->
     <nav class="mt-2 flex-1 space-y-1 px-2" aria-label="主导航">
       <router-link
-        v-for="item in NAV_ITEMS"
+        v-for="item in PRIMARY_NAV_ITEMS"
         :key="item.name"
         :to="{ name: item.name }"
         class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -123,13 +123,28 @@ async function handleSignOut() {
       </router-link>
     </nav>
 
-    <!-- 同步状态 -->
-    <div v-if="!collapsed && syncBadge" class="px-3 pb-1">
-      <BaseBadge :tone="syncBadge.tone" size="sm">云同步 · {{ syncBadge.text }}</BaseBadge>
-    </div>
+    <!-- 底部区：设置（配置类，不与内容页混在一起）/ 同步状态 / 退出 / 折叠 -->
+    <div
+      data-testid="sidebar-footer"
+      class="space-y-1 border-t border-slate-200 p-2 dark:border-slate-800"
+    >
+      <router-link
+        :to="{ name: SETTINGS_NAV_ITEM.name }"
+        class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+        :active-class="NAV_ACTIVE_CLASS"
+        :exact-active-class="NAV_ACTIVE_CLASS"
+        :title="SETTINGS_NAV_ITEM.label"
+        :data-testid="`sidebar-nav-${SETTINGS_NAV_ITEM.name}`"
+      >
+        <span class="text-base leading-none">{{ SETTINGS_NAV_ITEM.icon }}</span>
+        <span v-if="!collapsed" class="truncate">{{ SETTINGS_NAV_ITEM.label }}</span>
+      </router-link>
 
-    <!-- 底部：退出 / 登录 / 折叠 -->
-    <div class="space-y-1 border-t border-slate-200 p-2 dark:border-slate-800">
+      <!-- 同步状态（折叠时隐藏，避免 icon rail 里塞文字） -->
+      <div v-if="!collapsed && syncBadge" class="px-1 pb-0.5">
+        <BaseBadge :tone="syncBadge.tone" size="sm">云同步 · {{ syncBadge.text }}</BaseBadge>
+      </div>
+
       <BaseButton
         v-if="authStore.isAuthed"
         data-testid="sidebar-sign-out"
