@@ -17,6 +17,7 @@ import Cropper from 'cropperjs'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 import BaseButton from '@/components/atoms/BaseButton.vue'
+import { AVATAR_CROPPER_TEMPLATE } from '@/components/organisms/avatarCropperTemplate'
 import { useAvatar } from '@/composables/useAvatar'
 import { AVATAR_SIZE, AVATAR_WEBP_QUALITY } from '@/types/auth'
 import { validateAvatarFile } from '@/utils/avatarImage'
@@ -37,29 +38,6 @@ const tone = ref<'info' | 'success' | 'error'>('info')
 const busy = ref(false)
 
 let cropper: Cropper | null = null
-
-/** cropperjs v2 模板 + 1:1 选择框（aspect-ratio="1" 保证裁剪结果天然是正方形）
- *  注意不要加 `background` 属性——那会画出棋盘格背板，而我们要的是"原图即画布"。 */
-const CROPPER_TEMPLATE = `
-<cropper-canvas>
-  <cropper-image rotatable scalable skewable translatable></cropper-image>
-  <cropper-shade hidden></cropper-shade>
-  <cropper-handle action="select" plain></cropper-handle>
-  <cropper-selection initial-coverage="0.8" movable resizable aspect-ratio="1">
-    <cropper-grid role="grid" covered></cropper-grid>
-    <cropper-crosshair centered></cropper-crosshair>
-    <cropper-handle action="move" theme-color="rgba(255, 255, 255, 0.35)"></cropper-handle>
-    <cropper-handle action="n-resize"></cropper-handle>
-    <cropper-handle action="e-resize"></cropper-handle>
-    <cropper-handle action="s-resize"></cropper-handle>
-    <cropper-handle action="w-resize"></cropper-handle>
-    <cropper-handle action="ne-resize"></cropper-handle>
-    <cropper-handle action="nw-resize"></cropper-handle>
-    <cropper-handle action="se-resize"></cropper-handle>
-    <cropper-handle action="sw-resize"></cropper-handle>
-  </cropper-selection>
-</cropper-canvas>
-`
 
 /** 显示用头像（云端优先，其次本地） */
 const currentUrl = computed(() => displayUrl.value)
@@ -108,7 +86,7 @@ async function onFileChange(event: Event) {
   await nextTick()
   if (!cropImage.value) return
   cropper = new Cropper(cropImage.value, {
-    template: CROPPER_TEMPLATE,
+    template: AVATAR_CROPPER_TEMPLATE,
     container: cropContainer.value ?? undefined,
   })
 }

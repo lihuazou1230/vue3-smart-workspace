@@ -4,6 +4,7 @@ import { ref } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
 
 import { AVATAR_SIZE } from '@/types/auth'
+import { AVATAR_CROPPER_TEMPLATE } from './avatarCropperTemplate'
 // 直接取 SFC 源码文本（Vite 的 ?raw），用来守住那条"载重" CSS
 import avatarUploadSource from './AvatarUpload.vue?raw'
 
@@ -170,10 +171,23 @@ describe('AvatarUpload', () => {
   })
 
   it('裁剪区不铺暗色背板：原图本身就是画布', () => {
-    // 同理，背板/棋盘格在 happy-dom 里看不见，直接守住这两处配置
+    // 背板/棋盘格在 happy-dom 里看不见，直接守住模板配置
     expect(avatarUploadSource).not.toContain('bg-slate-900/90')
-    expect(avatarUploadSource).toContain('<cropper-canvas>')
-    expect(avatarUploadSource).not.toContain('<cropper-canvas background>')
+    expect(AVATAR_CROPPER_TEMPLATE).toContain('<cropper-canvas>')
+    expect(AVATAR_CROPPER_TEMPLATE).not.toContain('<cropper-canvas background>')
+  })
+
+  it('裁剪区只留手势不留装饰：没有网格、准星、缩放手柄与选区描边', () => {
+    // 用户要的是"固定圆框 + 拖图片"，这些装饰纯属干扰
+    expect(AVATAR_CROPPER_TEMPLATE).not.toContain('cropper-grid')
+    expect(AVATAR_CROPPER_TEMPLATE).not.toContain('cropper-crosshair')
+    expect(AVATAR_CROPPER_TEMPLATE).not.toContain('-resize')
+    expect(AVATAR_CROPPER_TEMPLATE).not.toContain('outlined')
+    // 选区不可移动 → cropperjs 会把拖动转成"移动图片"；并保留透明 move 手势层
+    expect(AVATAR_CROPPER_TEMPLATE).not.toMatch(/<cropper-selection[^>]*movable/)
+    expect(AVATAR_CROPPER_TEMPLATE).toContain('action="move" plain theme-color="transparent"')
+    // 1:1 选区仍在（导出素材必须是正方形）
+    expect(AVATAR_CROPPER_TEMPLATE).toContain('aspect-ratio="1"')
   })
 
   it('裁剪区样式必须给 cropper-canvas 显式尺寸（否则画布塌成 0，图片会以原始尺寸飘在左上角）', () => {
