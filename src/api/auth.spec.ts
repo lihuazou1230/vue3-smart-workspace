@@ -25,6 +25,7 @@ import {
   describeAuthError,
   emailPrefix,
   getCurrentSessionUser,
+  resendConfirmEmail,
   signInWithGitHub,
   signInWithPassword,
   signOutUser,
@@ -44,6 +45,7 @@ function fakeClient(overrides: Record<string, unknown> = {}) {
       error: null as unknown,
     })),
     signOut: vi.fn(async () => ({ data: {}, error: null as unknown })),
+    resend: vi.fn(async () => ({ data: {}, error: null as unknown })),
     getSession: vi.fn(async () => ({ data: { session: null }, error: null as unknown })),
     updateUser: vi.fn(async () => ({ data: { user: {} }, error: null as unknown })),
     onAuthStateChange: vi.fn<
@@ -282,6 +284,38 @@ describe('认证动作（已配置）', () => {
 
     stop()
     expect(unsubscribe).toHaveBeenCalled()
+  })
+
+  it('重新发送验证邮件：调用 resend(type=signup) 并带上回跳地址', async () => {
+    const result = await resendConfirmEmail('zhang@example.com', 'https://app.example.com')
+
+    expect(result).toMatchObject({ ok: true })
+    const client = holder.client as ReturnType<typeof fakeClient>
+    expect(client.auth.resend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'signup',
+        email: 'zhang@example.com',
+        options: expect.objectContaining({ emailRedirectTo: 'https://app.example.com' }),
+      }),
+    )
+  })
+
+  it('重发遇到频率限制：翻译成中文提示（连续点会被限流）', async () => {
+    holder.client = fakeClient({
+      resend: vi.fn(async () => ({ data: {}, error: { message: 'email rate limit exceeded' } })),
+    })
+
+    expect(await resendConfirmEmail('zhang@example.com')).toEqual({
+      ok: false,
+      message: '操作过于频繁，请稍后再试',
+    })
+  })
+
+  it('未配置 Supabase 时重发返回配置引导', async () => {
+    holder.client = null
+    const result = await resendConfirmEmail('zhang@example.com')
+    expect(result.ok).toBe(false)
+    expect(result.message).toContain('.env.local')
   })
 
   it('更新头像元数据成功后透传调用', async () => {

@@ -7,6 +7,7 @@ import type { AuthResult, AuthUser, SignUpPayload } from '@/types/auth'
 const api = vi.hoisted(() => ({
   describeAuthError: vi.fn<(error: unknown) => string>(),
   getCurrentSessionUser: vi.fn<() => Promise<AuthUser | null>>(),
+  resendConfirmEmail: vi.fn<(email: string, redirectTo?: string) => Promise<AuthResult>>(),
   signInWithGitHub: vi.fn<(redirectTo?: string) => Promise<AuthResult>>(),
   signInWithPassword: vi.fn<(email: string, password: string) => Promise<AuthResult>>(),
   signOutUser: vi.fn<() => Promise<AuthResult>>(),
@@ -40,6 +41,10 @@ describe('authStore', () => {
     configured(true)
     api.describeAuthError.mockImplementation((error) => `err:${String(error)}`)
     api.getCurrentSessionUser.mockResolvedValue(null)
+    api.resendConfirmEmail.mockResolvedValue({
+      ok: true,
+      message: '验证邮件已重新发送，请稍候查收',
+    })
     api.subscribeAuthChanges.mockReturnValue(vi.fn())
     api.signInWithPassword.mockResolvedValue({ ok: true, message: '登录成功' })
     api.signInWithGitHub.mockResolvedValue({ ok: true, message: '正在跳转 GitHub 授权…' })
@@ -188,6 +193,19 @@ describe('authStore', () => {
     expect(api.signInWithGitHub).toHaveBeenCalledWith(
       'https://app.example.com/login?redirect=/todos',
     )
+  })
+
+  it('重新发送验证邮件：去空格后调用，失败时记录文案', async () => {
+    const store = useAuthStore()
+    await store.init()
+
+    await store.resendConfirm('  zhang@example.com  ')
+    expect(api.resendConfirmEmail).toHaveBeenCalledWith('zhang@example.com')
+
+    api.resendConfirmEmail.mockResolvedValue({ ok: false, message: '操作过于频繁，请稍后再试' })
+    const result = await store.resendConfirm('zhang@example.com')
+    expect(result.ok).toBe(false)
+    expect(store.lastError).toBe('操作过于频繁，请稍后再试')
   })
 
   it('退出登录：无论云端结果如何本地都清空（避免卡在疑似登录态）', async () => {

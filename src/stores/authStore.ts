@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+﻿import { computed, ref } from 'vue'
 
 import { defineStore } from 'pinia'
 
@@ -8,6 +8,7 @@ import {
   signInWithGitHub,
   signInWithPassword,
   signOutUser,
+  resendConfirmEmail,
   signUpWithPassword,
   subscribeAuthChanges,
   updateAvatarMetadata,
@@ -119,6 +120,13 @@ export const useAuthStore = defineStore('auth', () => {
     return result
   }
 
+  /** 重新发送注册验证邮件（开启邮箱验证时用） */
+  async function resendConfirm(email: string): Promise<AuthResult> {
+    const result = await resendConfirmEmail(email.trim())
+    if (!result.ok) lastError.value = result.message
+    return result
+  }
+
   /** 退出登录：清空本地用户态（任务本地缓存由 todoStore 负责清理） */
   async function signOut(): Promise<AuthResult> {
     const result = await signOutUser()
@@ -183,6 +191,7 @@ export const useAuthStore = defineStore('auth', () => {
     signIn,
     signUp,
     signInWithGithub,
+    resendConfirm,
     signOut,
     refreshUser,
     setAvatarUrl,

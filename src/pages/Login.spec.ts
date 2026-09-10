@@ -215,6 +215,111 @@ describe('Login 页', () => {
       expect(wrapper.find('[data-testid="login-feedback"]').text()).toContain('验证')
       expect(router.currentRoute.value.name).toBe('login')
     })
+
+    it('需要邮箱验证时给出「重新发送」入口，并说明慢/进垃圾箱是常态', async () => {
+      authApiStub.signUpWithPassword.mockResolvedValue({
+        ok: true,
+        message: '注册成功，请到邮箱完成验证后再登录',
+        needsEmailConfirm: true,
+      })
+      const { wrapper } = await mountLogin()
+      await wrapper.find('[data-testid="login-tab-signup"]').trigger('click')
+      await fill(wrapper, {
+        email: 'zhang@example.com',
+        password: 'pw123456',
+        confirm: 'pw123456',
+        name: '',
+      })
+
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+
+      const panel = wrapper.find('[data-testid="login-pending-confirm"]')
+      expect(panel.exists()).toBe(true)
+      expect(panel.text()).toContain('zhang@example.com')
+      expect(panel.text()).toContain('垃圾箱')
+      // 刚发过一次，进入 60 秒冷却
+      const resend = wrapper.find('[data-testid="login-resend-confirm"]')
+      expect(resend.attributes('disabled')).toBeDefined()
+      expect(resend.text()).toContain('60s')
+    })
+
+    it('冷却结束后可重发，成功后重新进入冷却', async () => {
+      vi.useFakeTimers()
+      try {
+        authApiStub.signUpWithPassword.mockResolvedValue({
+          ok: true,
+          message: '注册成功，请到邮箱完成验证后再登录',
+          needsEmailConfirm: true,
+        })
+        const { wrapper } = await mountLogin()
+        await wrapper.find('[data-testid="login-tab-signup"]').trigger('click')
+        await fill(wrapper, {
+          email: 'zhang@example.com',
+          password: 'pw123456',
+          confirm: 'pw123456',
+          name: '',
+        })
+        await wrapper.find('form').trigger('submit')
+        await flushPromises()
+
+        // 等冷却走完
+        await vi.advanceTimersByTimeAsync(60_000)
+        await nextTick()
+        expect(
+          wrapper.find('[data-testid="login-resend-confirm"]').attributes('disabled'),
+        ).toBeUndefined()
+
+        await wrapper.find('[data-testid="login-resend-confirm"]').trigger('click')
+        await flushPromises()
+
+        expect(authApiStub.resendConfirmEmail).toHaveBeenCalledWith('zhang@example.com')
+        expect(wrapper.find('[data-testid="login-feedback"]').text()).toContain('重新发送')
+        expect(
+          wrapper.find('[data-testid="login-resend-confirm"]').attributes('disabled'),
+        ).toBeDefined()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('重发被限流时展示服务端文案，且不进入冷却（可以稍后再点）', async () => {
+      authApiStub.signUpWithPassword.mockResolvedValue({
+        ok: true,
+        message: '注册成功，请到邮箱完成验证后再登录',
+        needsEmailConfirm: true,
+      })
+      authApiStub.resendConfirmEmail.mockResolvedValue({
+        ok: false,
+        message: '操作过于频繁，请稍后再试',
+      })
+      vi.useFakeTimers()
+      try {
+        const { wrapper } = await mountLogin()
+        await wrapper.find('[data-testid="login-tab-signup"]').trigger('click')
+        await fill(wrapper, {
+          email: 'zhang@example.com',
+          password: 'pw123456',
+          confirm: 'pw123456',
+          name: '',
+        })
+        await wrapper.find('form').trigger('submit')
+        await flushPromises()
+
+        await vi.advanceTimersByTimeAsync(60_000)
+        await nextTick()
+        await wrapper.find('[data-testid="login-resend-confirm"]').trigger('click')
+        await flushPromises()
+
+        expect(wrapper.find('[data-testid="login-feedback"]').text()).toContain('过于频繁')
+        // 失败不进冷却，用户等一会儿就能再试
+        expect(
+          wrapper.find('[data-testid="login-resend-confirm"]').attributes('disabled'),
+        ).toBeUndefined()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
   })
 
   describe('GitHub OAuth', () => {

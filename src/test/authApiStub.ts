@@ -16,6 +16,7 @@ import type { AuthResult, AuthUser, SignUpPayload } from '@/types/auth'
 export const authApiStub = {
   describeAuthError: vi.fn<(error: unknown) => string>(),
   getCurrentSessionUser: vi.fn<() => Promise<AuthUser | null>>(),
+  resendConfirmEmail: vi.fn<(email: string, redirectTo?: string) => Promise<AuthResult>>(),
   signInWithGitHub: vi.fn<(redirectTo?: string) => Promise<AuthResult>>(),
   signInWithPassword: vi.fn<(email: string, password: string) => Promise<AuthResult>>(),
   signOutUser: vi.fn<() => Promise<AuthResult>>(),
@@ -29,6 +30,10 @@ export function resetAuthApiStub() {
   vi.clearAllMocks()
   authApiStub.describeAuthError.mockImplementation((error) => `err:${String(error)}`)
   authApiStub.getCurrentSessionUser.mockResolvedValue(null)
+  authApiStub.resendConfirmEmail.mockResolvedValue({
+    ok: true,
+    message: '验证邮件已重新发送，请稍候查收',
+  })
   authApiStub.signInWithGitHub.mockResolvedValue({ ok: true, message: '正在跳转 GitHub 授权…' })
   authApiStub.signInWithPassword.mockResolvedValue({ ok: true, message: '登录成功' })
   authApiStub.signOutUser.mockResolvedValue({ ok: true, message: '已退出登录' })

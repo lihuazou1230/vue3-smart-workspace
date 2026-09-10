@@ -13,7 +13,7 @@
  *    没有云配置就永远登不进去，不能让用户卡死在这个页面
  */
 
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import BaseButton from '@/components/atoms/BaseButton.vue'
@@ -44,6 +44,43 @@ const displayName = ref('')
 const submitting = ref(false)
 const formErrors = ref<Record<string, string>>({})
 const feedback = ref<{ ok: boolean; message: string } | null>(null)
+
+/**
+ * 等待邮箱验证的那个邮箱地址（注册成功后需要去邮箱确认时设置）。
+ * 有它才显示「重新发送」入口——没有它，用户只能干等，或者再点一次注册拿到「已注册」。
+ */
+const pendingConfirmEmail = ref('')
+/** 重发冷却剩余秒数（Supabase 对发信有频率限制，本地也倒计时一次，减少无效请求） */
+const resendCooldown = ref(0)
+let cooldownTimer: ReturnType<typeof setInterval> | null = null
+
+function startResendCooldown(seconds = 60) {
+  resendCooldown.value = seconds
+  if (cooldownTimer) clearInterval(cooldownTimer)
+  cooldownTimer = setInterval(() => {
+    resendCooldown.value -= 1
+    if (resendCooldown.value <= 0 && cooldownTimer) {
+      clearInterval(cooldownTimer)
+      cooldownTimer = null
+    }
+  }, 1000)
+}
+
+onBeforeUnmount(() => {
+  if (cooldownTimer) clearInterval(cooldownTimer)
+})
+
+async function resendConfirm() {
+  if (resendCooldown.value > 0 || !pendingConfirmEmail.value) return
+  submitting.value = true
+  try {
+    const result = await authStore.resendConfirm(pendingConfirmEmail.value)
+    feedback.value = { ok: result.ok, message: result.message }
+    if (result.ok) startResendCooldown(60)
+  } finally {
+    submitting.value = false
+  }
+}
 
 /** 登录后回跳目标（只认站内路径，挡开放重定向） */
 const redirectTarget = computed(() => parseRedirect(route.query.redirect) ?? '/')
@@ -94,7 +131,15 @@ async function submit() {
 
     feedback.value = { ok: result.ok, message: result.message }
     // 需要邮箱验证时不跳转：还没有会话，进去也会被守卫送回登录页
-    if (result.ok && !result.needsEmailConfirm) await router.push(redirectTarget.value)
+    if (result.ok && !result.needsEmailConfirm) {
+      await router.push(redirectTarget.value)
+      return
+    }
+    // 记住待验证邮箱，并给一个重发入口（邮件慢/进垃圾箱是常态）
+    if (result.ok && result.needsEmailConfirm) {
+      pendingConfirmEmail.value = email.value.trim()
+      startResendCooldown(60)
+    }
   } finally {
     submitting.value = false
   }
@@ -332,6 +377,31 @@ onMounted(async () => {
         >
           {{ feedback.message }}
         </p>
+
+        <!-- 等待邮箱验证：给重发入口 + 说清「慢/进垃圾箱」是常态，别让用户干等 -->
+        <div
+          v-if="pendingConfirmEmail"
+          data-testid="login-pending-confirm"
+          class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+        >
+          <p>
+            请到 <strong>{{ pendingConfirmEmail }}</strong> 查收验证邮件（通常 1~2 分钟送达，
+            <strong>没收到先看垃圾箱</strong>）。点邮件里的链接即可完成注册并自动登录。
+          </p>
+          <button
+            type="button"
+            data-testid="login-resend-confirm"
+            class="mt-2 font-medium underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="resendCooldown > 0 || submitting"
+            @click="resendConfirm"
+          >
+            {{
+              resendCooldown > 0
+                ? `重新发送验证邮件（${resendCooldown}s 后可再发）`
+                : '重新发送验证邮件'
+            }}
+          </button>
+        </div>
 
         <!-- 连接自检：把「网络不可用」拆成可定位的结论 -->
         <div v-if="!isLocalMode" class="mt-4 border-t border-slate-200 pt-3 dark:border-slate-700">

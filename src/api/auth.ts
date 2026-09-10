@@ -130,8 +130,9 @@ export async function signInWithPassword(email: string, password: string): Promi
   }
 }
 
-/** GitHub OAuth 登录（会跳转到 GitHub 授权页，回来时由 detectSessionInUrl 自动换会话） */
-export async function signInWithGitHub(redirectTo?: string): Promise<AuthResult> {
+/** GitHub OAuth 登录（会跳转到 GitHub 授权页，回来时由 detectSessionInUrl 自动换会话） */ export async function signInWithGitHub(
+  redirectTo?: string,
+): Promise<AuthResult> {
   try {
     const client = requireSupabaseClient()
     const { error } = await client.auth.signInWithOAuth({
@@ -142,6 +143,32 @@ export async function signInWithGitHub(redirectTo?: string): Promise<AuthResult>
     })
     if (error) return failure(error)
     return { ok: true, message: '正在跳转 GitHub 授权…' }
+  } catch (error) {
+    return failure(error)
+  }
+}
+
+/**
+ * 重新发送注册验证邮件。
+ *
+ * 为什么必须有：开启「Confirm email」时，验证信走的是邮件通道，慢或进垃圾箱是常态。
+ * 没有重发入口，用户只能干等，或者再点一次注册——而后者会得到「该邮箱已注册」，
+ * 反而更懵。这里的错误也要翻译好：Supabase 对发信有频率限制，
+ * 连续点会返回 rate limit，得明确告诉用户「过一会儿再试」。
+ */
+export async function resendConfirmEmail(email: string, redirectTo?: string): Promise<AuthResult> {
+  try {
+    const client = requireSupabaseClient()
+    const { error } = await client.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo:
+          redirectTo ?? (typeof location !== 'undefined' ? location.origin : undefined),
+      },
+    })
+    if (error) return failure(error)
+    return { ok: true, message: '验证邮件已重新发送，请稍候查收' }
   } catch (error) {
     return failure(error)
   }
