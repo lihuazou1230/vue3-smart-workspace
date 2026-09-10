@@ -1,11 +1,14 @@
 # Vue 3 智能工作台
 
-一个集**任务管理、今日聚焦、子任务、批量操作、数据可视化、天气信息与外观自定义**于一体的个人效率仪表板，基于 Vue 3 + TypeScript + Tailwind CSS + Element Plus 构建，纯前端、无后端服务。
+一个集**任务管理、今日聚焦、子任务、批量操作、数据可视化、天气信息与外观自定义**于一体的个人效率仪表板，基于 Vue 3 + TypeScript + Tailwind CSS + Element Plus 构建。第五阶段接入 **Supabase**（Auth + Postgres RLS + Storage）后支持真实注册/登录与任务多设备同步；**不配置 Supabase 也能以「本地模式」完整使用**，不会把功能锁死。
 
-> 当前进度：**第一 ~ 四阶段已完成**（基础建设 / 任务管理闭环 / 可视化与天气集成 / 体验优化与交付）。
+> 当前进度：**第一 ~ 五阶段已完成**（基础建设 / 任务管理闭环 / 可视化与天气集成 / 体验优化与交付 / 用户系统与多设备同步）。
 
 ## 核心功能
 
+- 👤 **用户系统**：邮箱密码注册/登录 + GitHub OAuth，刷新页面会话自动恢复（不闪跳登录页），未登录访问受保护页自动重定向并带原目标回跳
+- ☁️ **多设备同步**：任务写进云端 Postgres（行级安全 RLS），离线改动进队列、联网自动补发，旧 localStorage 数据登录后**一次性迁移**
+- 🖼️ **头像上传**：本地选图 → 圆形裁剪（cropperjs）→ 压成 256×256 WebP → 已登录传云端 Storage，未登录存 IndexedDB
 - 📋 **任务管理闭环**：增删改查、状态筛选、优先级多选、关键字搜索、localStorage 持久化
 - ↩️ **撤销删除**：软删除 + 1 分钟窗口内可撤销（Toast 倒计时）
 - 📅 **截止日期**：今日/本周筛选、逾期标红、1天/1周/1月快捷调整
@@ -28,7 +31,9 @@
 - **Vite** 构建，路径别名 `@` → `src`
 - **Tailwind CSS v3.4**（`darkMode: 'class'` 与 Element Plus 深色共用 `html.dark`）
 - **Element Plus**（unplugin 按需自动导入）
-- **Pinia** 状态管理 / **Vue Router**（预留）
+- **Pinia** 状态管理 / **Vue Router**（4 个页面按需懒加载 + 登录守卫 + keep-alive）
+- **Supabase**（Auth 邮箱/GitHub OAuth · Postgres + RLS 任务存储 · Storage 头像 bucket）
+- **cropperjs**（头像圆形裁剪）
 - **ECharts**（`echarts/core` 按需注册图表类型）
 - **Vitest** 单元测试 / ESLint + Prettier / Husky + commitlint
 
@@ -36,17 +41,22 @@
 
 ```
 src/
-├── api/              # 原生 fetch 请求层（httpClient / weather / weatherCache）
+├── api/              # supabase 客户端 / auth 认证 / avatar 头像 Storage / todoRemote 任务云端读写 / weather 天气
 ├── assets/styles/    # Tailwind 入口、Element Plus 主题变量、卡片/数字滚动等纯 CSS
 ├── components/
 │   ├── atoms/        # BaseButton / BaseInput / BaseBadge / BaseCheckbox / DigitRoll / TrendBadge
 │   ├── molecules/    # TodoItem / SearchBar / ThemeToggle / RollingAmount
-│   └── organisms/    # TodoList / TodoForm / MyDay / DailyGreeting / EarningsClock / TodayProgressCard ...
-├── composables/      # useTheme / useWeather / useEarnings / useECharts / useStatistics ...
+│   └── organisms/    # TodoList / TodoForm / MyDay / DailyGreeting / EarningsClock / TodayProgressCard /
+│                     # WeatherWidget / SettingsPanel / SidebarNav / AvatarUpload / MobileBottomNav
+├── composables/      # useTheme / useWeather / useEarnings / useECharts / useStatistics / useAvatar / useIndexedDb
 ├── data/             # quotes.json（每日格言，本地 JSON 轮换）
-├── stores/           # todoStore / themeStore
-├── types/            # todo / weather / statistics / earnings 类型定义
-└── utils/            # 日期、优先级、校验、主题色、统计聚合、赚钱换算、每日格言、金额拆位
+├── layouts/          # DefaultLayout（侧边栏 + 顶栏 + 内容区 + 移动端底部导航）
+├── pages/            # Dashboard / Todos / Stats / Settings / Login
+├── router/           # 路由表 + authGuard（登录守卫与回跳校验）
+├── stores/           # todoStore（含云同步）/ themeStore / authStore
+├── types/            # todo / weather / statistics / earnings / auth 类型定义
+└── utils/            # 日期、优先级、校验、主题色、统计聚合、赚钱换算、每日格言、金额拆位、头像工具、同步差异
+supabase/schema.sql   # 任务表 + RLS 策略 + 头像 bucket 策略（可重复执行）
 ```
 
 ## 🎨 视觉规范与主题系统
@@ -65,7 +75,8 @@ src/
 | 仪表板布局   | 三列 bento grid（`lg:grid-cols-3`）：赚钱秒表深绿卡跨 2 行占 C 位，右侧依次是今日完成度环形卡、天气卡、每日格言，下方今日聚焦 + 任务概览，再往下是任务区与可视化                   |
 | Element Plus | `--el-border-radius-base: 12px` 与卡片圆角协调                                                                                                                                     |
 
-> 侧边栏 240px + 4 页面路由拆分属于第五阶段（与登录守卫共用同一套路由骨架），本期未实现。
+> 侧边栏 240px（可折叠 icon rail）+ 顶栏全局搜索 + 4 页面路由拆分已在第五阶段落地：
+> 桌面端 `layouts/DefaultLayout.vue` 承载骨架，移动端走 `MobileBottomNav`，页面组件一律懒加载。
 
 ## 三个"算得准"的实现细节
 
@@ -115,6 +126,10 @@ pnpm install
 
 # 配置天气 API Key（可选，未配置时天气卡给出引导）
 cp .env.example .env.local   # 然后填入 VITE_AMAP_KEY（高德「Web服务」Key）
+
+# 配置 Supabase（可选，未配置时以本地模式运行）
+# 在 .env.local 追加 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY，
+# 并在 Supabase SQL Editor 执行 supabase/schema.sql
 
 # 启动开发服务器
 pnpm dev
@@ -191,19 +206,118 @@ VITE_AMAP_KEY=你的Key
 
 > ⚠️ 实现上有个坑：限流错误必须在 `withRetry` **内部**判定。因为高德失败时 HTTP 仍是 200，若把校验放在重试之外，重试永远不会触发（本项目已修正并有用例覆盖）。
 
+## 👤 用户系统与多设备同步（第五阶段）
+
+### 为什么选 Supabase
+
+| 方案                     | 成本    | 结论                                                                       |
+| ------------------------ | ------- | -------------------------------------------------------------------------- |
+| 本地多用户档案（假登录） | 半天    | ❌ 换设备数据不通，价值有限                                                |
+| **Supabase Auth**        | 1~2 天  | ✅ **已选**：真注册/登录 + GitHub OAuth + 云同步，一次解决两件事            |
+| 自建 JWT 后端            | 3~5 天  | ❌ 偏离前端项目重心，性价比低                                              |
+
+权限下沉到数据库层：前端只带 anon（公开）key，越权读写由 **RLS 策略**拦住，所以 key 泄露 ≠ 数据泄露。
+
+### 配置步骤
+
+1. <https://supabase.com> 新建项目 → Project Settings → API 复制 **Project URL** 与 **anon public key**
+2. 控制台 → SQL Editor → 粘贴执行 `supabase/schema.sql`（脚本幂等，可重复执行）
+3. Authentication → Providers：打开 **Email**；需要 GitHub 登录再打开 **GitHub**，
+   回调地址填 `https://<project>.supabase.co/auth/v1/callback`
+4. 项目根 `.env.local` 写入：
+
+```
+VITE_SUPABASE_URL=https://xxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
+```
+
+> 留空时应用自动进入**本地模式**：功能全部可用、不强制登录、不做云同步，登录页只展示配置引导，
+> 不会把用户锁在一个永远登不进去的页面上。
+
+### 数据模型（`supabase/schema.sql`）
+
+```sql
+create table public.todos (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  title      text not null default '',
+  completed  boolean not null default false,
+  payload    jsonb not null default '{}'::jsonb,  -- priority/dueDate/subtasks/pinned/createdAt
+  sort_order integer not null default 0,          -- 拖拽排序的顺序位
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create policy "todos: own rows only" on public.todos
+  for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
+
+- **结构化查询字段单独成列**（`title` / `completed` / `sort_order`），其余扩展字段进 `payload jsonb`——
+  以后加字段不用改表
+- 头像 bucket `avatars`：公开读，写入限本人目录 `user_id/avatar.webp`（策略校验路径第一段 = `auth.uid()`）
+
+### 同步模型：云端为准 + 本地缓存 + 离线队列（`stores/todoStore.ts`）
+
+| 场景             | 行为                                                                                                        |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| 未登录 / 本地模式 | 行为与以前完全一致，只写 localStorage                                                                        |
+| 登录             | `activateCloud(userId)`：拉取云端 → 覆盖本地（首次登录则把本地旧数据**一次性迁移**上去）                      |
+| 日常改动         | 每个动作结束后由一处 **deep watcher 算指纹差异**（`utils/todoSync.ts`），只推送真正变化的任务，新增业务动作不用记得"顺手写同步代码" |
+| 断网             | 改动进**持久化队列**（localStorage），状态显示「离线」，`online` 事件或下次进入时自动补发                      |
+| 退出登录         | 先把队列尽力送出去，然后**清空本地任务缓存**——任务属于账号，不能留在浏览器里给下一个登录者看见                  |
+
+几个容易踩的点：
+
+1. **一次性迁移**：按 `smart-workspace:migrated:<userId>` 标记隔离，同一账号只迁一次；
+   迁移时**本地优先合并远端**（远端独有的任务保留），不做双写。
+2. **本地缓存的账号归属**：缓存带 owner 标记（`smart-workspace:todos-owner`）。若本地缓存属于**另一个账号**，
+   激活时直接丢弃——否则会把 A 的任务推进 B 的账号（数据串号，最危险的一类 bug）。
+3. **激活期间让 watcher 让路**：拉云端是异步的，激活前积压的 watcher 回调会在错误的时间点执行
+   （基准快照还是空的），把整份列表误判成新改动重复推送；激活结束再做一次"补差"即可两全。
+4. **推送顺序**：删除与新增串行补发，避免同一条任务的新增/删除乱序落地。
+
+### 路由与守卫（`router/` + `router/authGuard.ts`）
+
+- **页面拆分**：`/` 仪表板、`/todos` 任务、`/stats` 统计、`/settings` 设置、`/login` 登录（不套布局）；
+  页面组件一律 `() => import()` 懒加载，构建后每页独立 chunk，首屏只加载仪表板
+- **会话恢复不能闪跳**：`authStore` 初始状态是 `loading`，守卫 `await ensureReady()` 后再判定——
+  刷新页面时 `getSession()` 还没回来就判"未登录"，已登录用户会被踢到登录页再弹回来
+- **回跳参数只认站内路径**：`parseRedirect` 拒绝 `//evil.com`、`https://…`、相对路径，挡开放重定向
+- **未配置 Supabase 直接放行**：没有云配置就没有"登录"这回事，本地模式下所有页面照常访问
+- 未登录访问受保护页 → `/login?redirect=<原目标>`，登录成功后回跳；已登录访问 `/login` → 回仪表板
+
+### 头像链路（`AvatarUpload.vue` + `composables/useAvatar.ts`）
+
+1. **前置校验**：类型白名单（jpg/png/webp）+ 原图 ≤ 5MB 在浏览器端先拦（不白白上传一张 20MB 相机原图）
+2. **圆形裁剪**：cropperjs 正方形裁剪框（`aspect-ratio="1"`）+ 圆形遮罩引导，支持拖拽与滚轮缩放
+3. **压缩导出**：`$toCanvas(256×256)` → `toBlob('image/webp', 0.9)`，几百 KB 内
+4. **分级存储**：已登录 → Supabase Storage `avatars/{user_id}/avatar.webp`（覆盖上传 + `?v=` 版本号做缓存失效）
+   → URL 写回 `user_metadata.avatar_url` 跨设备可见；未登录 → **IndexedDB 存 blob**
+5. **为什么不用 localStorage 存头像**：base64 塞进 localStorage，5MB 配额几下就爆，而且读写同步、阻塞主线程；
+   IndexedDB 能原样存 Blob，异步且容量大
+6. **一个隐藏的坑**：裁剪结果是 `Blob`，**必须用 `shallowRef` 而不是 `ref`**——
+   普通 `ref` 会把对象包成响应式 Proxy，而 `Blob` 的方法依赖内部槽，
+   Proxy 包装后在浏览器里调用 `upload/arrayBuffer` 会直接抛 `Illegal invocation`（已被用例覆盖）
+
 ## 在线部署（Vercel）
 
-项目默认识别为 Vite。已提供 `vercel.json`（SPA 重写 + 构建配置）。在 Vercel 项目环境变量中配置 `VITE_AMAP_KEY` 即可启用天气功能。
+项目默认识别为 Vite。已提供 `vercel.json`（SPA 重写 + 构建配置）。在 Vercel 项目环境变量中配置 `VITE_AMAP_KEY`（天气）与 `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`（用户系统）即可全部启用。
+
+> 用了 GitHub OAuth 时，记得在 Supabase → Authentication → URL Configuration 里把 Vercel 域名加入 Redirect URLs（本地开发再加 `http://localhost:5173`）。
 
 ## 设计思路
 
-- **原子设计**分层组件：原子（纯展示）→ 分子（简单交互）→ 有机体（连接 Store 处理数据）
-- **状态管理**：Pinia（任务、主题偏好）
+- **原子设计**分层组件：原子（纯展示）→ 分子（简单交互）→ 有机体（连接 Store 处理数据）；
+  模板层交给 `layouts/`，页面层交给 `pages/`
+- **状态管理**：Pinia（任务 + 云同步、主题偏好、登录态）
 - **运行时主题**：改主题色/圆角写入 `--el-color-primary` 系列 CSS 变量 + `ElConfigProvider` 注入密度，`html.dark` 一处切换深浅，无需重新编译主题包
 - **撤销删除**：软删除 + 延迟提交，权衡数据安全与体验
 - **纯函数优先**：赚钱换算（`utils/earnings.ts`）、每日格言（`utils/dailyQuote.ts`）、统计聚合（`useStatistics.ts`）、
-  金额拆位（`utils/amountDigits.ts`）都做成可注入 `now` / 纯输入输出的纯函数，组件只负责渲染，逻辑好测也好讲
-- **渐进增强的降级链路**：定位（定位 → 记忆位置 → 默认城市）、天气（缓存 → 接口 → 错误重试）、存储（localStorage → 内存态）、动效（`prefers-reduced-motion` → 直接切换）都保证"永远有东西可看/可用"
+  金额拆位（`utils/amountDigits.ts`）、同步差异与合并（`utils/todoSync.ts`）、头像校验（`utils/avatarImage.ts`）
+  都做成可注入 `now` / 纯输入输出的纯函数，组件只负责渲染，逻辑好测也好讲
+- **渐进增强的降级链路**：定位（定位 → 记忆位置 → 默认城市）、天气（缓存 → 接口 → 错误重试）、
+  存储（localStorage → 内存态）、同步（云端 → 本地缓存 + 离线队列 → 本地模式）、
+  头像（Storage → IndexedDB → 内存兜底）、动效（`prefers-reduced-motion` → 直接切换）都保证"永远有东西可看/可用"
 
 ## Git 规范
 
@@ -213,11 +327,12 @@ VITE_AMAP_KEY=你的Key
 
 ## 待优化项
 
-- **路由分包**：当前所有模块由单页 `App.vue` 装配，构建产物集中在一个 chunk（约 970 kB，gzip 325 kB）。第五阶段启用 vue-router 后按页面懒加载（`() => import()`）+ `keep-alive`，首屏只留仪表板
-- **侧边栏布局**：视觉规范里定了桌面端 240px 侧边栏（可折叠 icon rail）+ 顶栏全局搜索，与 4 路由一起在第五阶段落地
+- **主题偏好跨设备同步**：目前留在 localStorage，后续可选挂到 `auth.users.user_metadata`（本期不做，不阻塞主线）
+- **冲突解决**：当前是"最后一次写入生效"（last-write-wins），多端同时编辑同一条任务可能互相覆盖；
+  更严谨可引入 `updated_at` 版本号做乐观并发控制
 - PWA 离线、键盘快捷键（VueUse `useMagicKeys`）、数据导入导出、命令面板、迷你月历、连续打卡（Streak）
 - 拖拽排序目前用原生 HTML5 Drag & Drop（无依赖）；若要更顺滑的跨列表拖拽，可引入 `@vueuse/integrations` + `sortablejs`
-- 测试覆盖率提升（当前 43 个测试文件 / 430+ 用例，含第五阶段进行中的用例）
+- 测试覆盖率提升（当前 **51 个测试文件 / 500+ 用例**，覆盖纯函数、store 状态流转、路由守卫与关键组件交互）
 
 ## 许可证
 
