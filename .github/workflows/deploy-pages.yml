@@ -70,10 +70,23 @@ jobs:
           # 关掉 Jekyll 处理，避免以 _ 开头的产物被丢弃
           touch dist/.nojekyll
 
+      - name: 检查 Pages 是否已开启
+        continue-on-error: true
+        run: |
+          # 默认 GITHUB_TOKEN 无权替仓库开启 Pages（GitHub 的限制），所以首次必须先手动开一次。
+          # 这里先探一下，未开启就在日志里直接给出该点哪里，省得对着一片红猜原因。
+          if ! curl -sSf -o /dev/null \
+               -H "Authorization: Bearer ${{ github.token }}" \
+               -H "Accept: application/vnd.github+json" \
+               "https://api.github.com/repos/${{ github.repository }}/pages"; then
+            echo "::warning title=Pages 尚未开启::请到仓库 Settings → Pages → Build and deployment → Source 选择「GitHub Actions」，然后重新运行本工作流"
+          fi
+
       - name: 配置 Pages
         uses: actions/configure-pages@v5
         with:
-          # 若仓库尚未开启 Pages，就用当前 token 自动开启（免去手动去 Settings 里选来源）
+          # Pages 已开启后这里只是读取配置；未开启时尝试自动开启（需要仓库管理员权限，
+          # 用默认 GITHUB_TOKEN 通常会失败——那就按上一步 warning 里的提示手动开一次）
           enablement: true
 
       - name: 上传产物
