@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { ref } from 'vue'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 
 import { AVATAR_SIZE } from '@/types/auth'
 // 直接取 SFC 源码文本（Vite 的 ?raw），用来守住那条"载重" CSS
@@ -164,7 +164,16 @@ describe('AvatarUpload', () => {
     expect((cropper.instances[0].options as { template: string }).template).toContain(
       'aspect-ratio="1"',
     )
+    // 不再有「应用裁剪」这个中间步骤
+    expect(wrapper.find('[data-testid="avatar-apply-crop"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="avatar-message"]').text()).toContain('圆形区域')
+  })
+
+  it('裁剪区不铺暗色背板：原图本身就是画布', () => {
+    // 同理，背板/棋盘格在 happy-dom 里看不见，直接守住这两处配置
+    expect(avatarUploadSource).not.toContain('bg-slate-900/90')
+    expect(avatarUploadSource).toContain('<cropper-canvas>')
+    expect(avatarUploadSource).not.toContain('<cropper-canvas background>')
   })
 
   it('裁剪区样式必须给 cropper-canvas 显式尺寸（否则画布塌成 0，图片会以原始尺寸飘在左上角）', () => {
@@ -174,19 +183,7 @@ describe('AvatarUpload', () => {
     )
   })
 
-  it('应用裁剪：导出 256×256 的 webp 并给出预览', async () => {
-    const wrapper = await mountDialog()
-    await chooseFile(wrapper, fileOf('me.png', 'image/png', 1024))
-    await wrapper.vm.$nextTick()
-
-    await wrapper.find('[data-testid="avatar-apply-crop"]').trigger('click')
-
-    expect(toCanvas).toHaveBeenCalledWith({ width: AVATAR_SIZE, height: AVATAR_SIZE })
-    expect(wrapper.find('[data-testid="avatar-message"]').text()).toContain('裁剪完成')
-    expect(wrapper.find('[data-testid="avatar-save"]').attributes('disabled')).toBeUndefined()
-  })
-
-  it('未裁剪时不能保存，点了也有明确提示', async () => {
+  it('没选图时保存按钮禁用，点了也不会发请求', async () => {
     const wrapper = await mountDialog()
     expect(wrapper.find('[data-testid="avatar-save"]').attributes('disabled')).toBeDefined()
 
@@ -194,17 +191,31 @@ describe('AvatarUpload', () => {
     expect(avatar.saveAvatar).not.toHaveBeenCalled()
   })
 
-  it('保存：把裁剪产物交给 saveAvatar，成功后关闭对话框', async () => {
+  it('点保存即自动裁剪：导出 256×256 的 webp 并交给 saveAvatar，成功后关闭对话框', async () => {
     const wrapper = await mountDialog()
     await chooseFile(wrapper, fileOf('me.png', 'image/png', 1024))
     await wrapper.vm.$nextTick()
-    await wrapper.find('[data-testid="avatar-apply-crop"]').trigger('click')
 
     await wrapper.find('[data-testid="avatar-save"]').trigger('click')
+    await flushPromises()
 
+    expect(toCanvas).toHaveBeenCalledWith({ width: AVATAR_SIZE, height: AVATAR_SIZE })
     expect(avatar.saveAvatar).toHaveBeenCalledTimes(1)
     expect(avatar.saveAvatar.mock.calls[0][0]).toBe(croppedBlob)
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([false])
+  })
+
+  it('导出失败（拿不到 blob）：给出提示且不写云端', async () => {
+    toCanvas.mockResolvedValueOnce({ toBlob: (cb: (b: Blob | null) => void) => cb(null) })
+    const wrapper = await mountDialog()
+    await chooseFile(wrapper, fileOf('me.png', 'image/png', 1024))
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="avatar-save"]').trigger('click')
+    await flushPromises()
+
+    expect(avatar.saveAvatar).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="avatar-message"]').text()).toContain('裁剪失败')
   })
 
   it('保存失败：显示错误且不关闭对话框（用户可以重试）', async () => {
@@ -212,9 +223,9 @@ describe('AvatarUpload', () => {
     const wrapper = await mountDialog()
     await chooseFile(wrapper, fileOf('me.png', 'image/png', 1024))
     await wrapper.vm.$nextTick()
-    await wrapper.find('[data-testid="avatar-apply-crop"]').trigger('click')
 
     await wrapper.find('[data-testid="avatar-save"]').trigger('click')
+    await flushPromises()
 
     expect(wrapper.find('[data-testid="avatar-message"]').text()).toContain('网络不可用')
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
@@ -237,7 +248,6 @@ describe('AvatarUpload', () => {
     const wrapper = await mountDialog()
     await chooseFile(wrapper, fileOf('me.png', 'image/png', 1024))
     await wrapper.vm.$nextTick()
-    await wrapper.find('[data-testid="avatar-apply-crop"]').trigger('click')
 
     await wrapper.setProps({ modelValue: false })
 
