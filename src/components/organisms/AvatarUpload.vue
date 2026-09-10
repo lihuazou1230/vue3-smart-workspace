@@ -253,11 +253,15 @@ onBeforeUnmount(resetCrop)
         v-if="sourceUrl"
         ref="cropContainer"
         data-testid="avatar-crop-area"
-        class="relative h-64 w-full overflow-hidden rounded-xl bg-slate-900/90"
+        class="avatar-crop-stage relative mx-auto aspect-square w-full max-w-[288px] overflow-hidden rounded-xl bg-slate-900/90"
       >
         <img ref="cropImage" data-testid="avatar-crop-image" :src="sourceUrl" alt="待裁剪图片" />
+        <!--
+          圆形遮罩：纯视觉引导（最终导出的是正方形素材，头像按圆形裁切显示）。
+          尺寸取 4/5 是为了大致贴合 cropperjs 的选区（initial-coverage=0.8）。
+        -->
         <div
-          class="pointer-events-none absolute left-1/2 top-1/2 aspect-square w-[min(58%,14rem)] -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white/80"
+          class="pointer-events-none absolute left-1/2 top-1/2 h-4/5 w-4/5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white/80"
           style="box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.45)"
           aria-hidden="true"
         ></div>
@@ -308,3 +312,24 @@ onBeforeUnmount(resetCrop)
     </template>
   </el-dialog>
 </template>
+
+<style scoped>
+/**
+ * cropperjs v2 的 <cropper-canvas> / <cropper-image> 是它自己动态插入的自定义元素，
+ * 不在本组件模板里，普通 scoped 选择器作用不到它们（要用 :deep）。
+ *
+ * 为什么必须显式给尺寸：v2 里 <cropper-image> 是 `position: absolute`，
+ * 它的布局尺寸由父级 <cropper-canvas> 的 client size 算出来。画布没有尺寸时
+ * 高度会塌成 0，图片就以**原始像素**飘在左上角（当初踩的就是这个坑：
+ * 图片缩在顶上一条、圆形遮罩下面全空）。
+ */
+.avatar-crop-stage :deep(cropper-canvas) {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-crop-stage :deep(cropper-image) {
+  display: block;
+}
+</style>

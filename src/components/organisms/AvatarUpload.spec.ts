@@ -4,6 +4,8 @@ import { ref } from 'vue'
 import { mount } from '@vue/test-utils'
 
 import { AVATAR_SIZE } from '@/types/auth'
+// 直接取 SFC 源码文本（Vite 的 ?raw），用来守住那条"载重" CSS
+import avatarUploadSource from './AvatarUpload.vue?raw'
 
 /** cropperjs 在 happy-dom 里没法真跑（需要布局与 canvas），换成可控的桩 */
 const cropper = vi.hoisted(() => ({
@@ -152,12 +154,24 @@ describe('AvatarUpload', () => {
     await chooseFile(wrapper, fileOf('me.png', 'image/png', 1024))
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('[data-testid="avatar-crop-area"]').exists()).toBe(true)
+    const stage = wrapper.find('[data-testid="avatar-crop-area"]')
+    expect(stage.exists()).toBe(true)
+    // 正方形舞台：画布与圆形遮罩都按这个盒子居中对齐
+    expect(stage.classes()).toContain('avatar-crop-stage')
+    expect(stage.classes()).toContain('aspect-square')
+
     expect(cropper.instances).toHaveLength(1)
     expect((cropper.instances[0].options as { template: string }).template).toContain(
       'aspect-ratio="1"',
     )
     expect(wrapper.find('[data-testid="avatar-message"]').text()).toContain('圆形区域')
+  })
+
+  it('裁剪区样式必须给 cropper-canvas 显式尺寸（否则画布塌成 0，图片会以原始尺寸飘在左上角）', () => {
+    // 这类布局问题在 happy-dom 里测不出来（它不做排版），所以直接守住这条"载重" CSS
+    expect(avatarUploadSource).toMatch(
+      /\.avatar-crop-stage\s+:deep\(cropper-canvas\)[\s\S]{0,220}height:\s*100%/,
+    )
   })
 
   it('应用裁剪：导出 256×256 的 webp 并给出预览', async () => {
