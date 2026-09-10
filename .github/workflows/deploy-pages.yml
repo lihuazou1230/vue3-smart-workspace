@@ -24,6 +24,8 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  # 清理陈旧部署记录（Deployments API）需要它
+  deployments: write
 
 # 同一时间只跑一个部署；新的推送取消排队中的旧任务
 concurrency:
@@ -101,34 +103,44 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      # 踩过的坑：某次部署失败后，Pages 那边会残留一条 "in progress" 的部署记录，
-      # 之后每次部署都被直接拒绝（status 400：due to in progress deployment），
-      # 而 GitHub Deployment 列表里看它是 failure——两套账，很容易查半天。
-      # 这里在部署前把残留的 in-progress / queued 记录取消掉，让流程能自愈。
-      - name: 清理卡住的 Pages 部署
+      # 踩过的坑（GitHub 已知问题，见 actions/deploy-pages#22）：
+      # 部署被取消/中断后会残留一条 in-progress 的 Pages 部署，之后每次部署都被 400 拒绝：
+      #   "Deployment request failed ... due to in progress deployment. Please cancel <sha> first"
+      # 而仓库 Deployments 列表里那条显示的是 failure——两套账，很容易白查半天。
+      # 官方给的路子是"取消/删除那条部署"；这里在部署前把陈旧（非 success）的部署标为 inactive 并删除，
+      # 让流程自愈。删部署记录不会影响已经发布出去的内容。
+      - name: 清理陈旧的部署记录
         continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
             const { owner, repo } = context.repo
+            const currentSha = context.sha
+            let cleaned = 0
             try {
-              const { data } = await github.request('GET /repos/{owner}/{repo}/pages/deployments', {
-                owner, repo, per_page: 20,
+              const { data: deployments } = await github.rest.repos.listDeployments({
+                owner, repo, environment: 'github-pages', per_page: 100,
               })
-              const stuck = data.filter(
-                (d) => d.status === 'deployment_in_progress' || d.status === 'deployment_queued',
-              )
-              for (const d of stuck) {
-                await github.request(
-                  'POST /repos/{owner}/{repo}/pages/deployments/{pages_deployment_id}/cancel',
-                  { owner, repo, pages_deployment_id: d.id },
-                )
-                core.info(`已取消卡住的 Pages 部署 ${d.id}（status=${d.status}）`)
+              for (const d of deployments) {
+                if (d.sha === currentSha) continue
+                const { data: statuses } = await github.rest.repos.listDeploymentStatuses({
+                  owner, repo, deployment_id: d.id, per_page: 1,
+                })
+                const state = statuses[0] && statuses[0].state
+                // 只清理"没成功"的：success 的记录留着（正在对外服务的那次），inactive 无需重复处理
+                if (state === 'success' || state === 'inactive') continue
+                await github.rest.repos.createDeploymentStatus({
+                  owner, repo, deployment_id: d.id, state: 'inactive',
+                  description: 'superseded by a newer deployment',
+                })
+                await github.rest.repos.deleteDeployment({ owner, repo, deployment_id: d.id })
+                cleaned += 1
+                core.info(`已清理陈旧部署 ${d.id}（sha=${d.sha.slice(0, 7)}, state=${state}）`)
               }
-              if (stuck.length === 0) core.info('没有卡住的 Pages 部署，继续部署')
+              core.info(cleaned ? `共清理 ${cleaned} 条陈旧部署` : '没有需要清理的陈旧部署')
             } catch (error) {
-              // 清理失败不该阻塞本次部署（例如权限不足）：留个 warning，继续往下走
-              core.warning(`清理卡住的部署时出错（不阻塞本次部署）：${error.message}`)
+              // 清理失败不阻塞本次部署（例如 token 权限不足）：留个 warning 继续走
+              core.warning(`清理陈旧部署时出错（不阻塞本次部署）：${error.message}`)
             }
 
       - name: 发布到 GitHub Pages
