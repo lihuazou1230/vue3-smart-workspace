@@ -298,6 +298,10 @@ create policy "todos: own rows only" on public.todos
    （基准快照还是空的），把整份列表误判成新改动重复推送；激活结束再做一次"补差"即可两全。
 4. **推送顺序**：删除与新增串行补发，避免同一条任务的新增/删除乱序落地。
 
+> 「两台设备数据一致」有**自动化用例**（`stores/todoStore.multiDevice.spec.ts`）：用一个**有状态的假云端**
+> 模拟两台设备（各一份 localStorage + 各一个 Pinia），覆盖 ① A 新增 → B 首次登录就看到 ② B 完成/新增 → A
+> 重新打开后收敛一致 ③ A 真正删除 → B 也不再看到 ④ **两台设备各自离线改动后先后上线，两边改动都保留、互不覆盖**。
+
 ### 同步状态怎么告诉用户（`composables/useSyncNotifications.ts` + `utils/syncNotice.ts`）
 
 | 时机           | 反馈                                                                                                                  |
@@ -348,6 +352,8 @@ create policy "todos: own rows only" on public.todos
 项目默认识别为 Vite。已提供 `vercel.json`（SPA 重写 + 构建配置）。在 Vercel 项目环境变量中配置 `VITE_AMAP_KEY`（天气）与 `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`（用户系统）即可全部启用。
 
 > 用了 GitHub OAuth 时，记得在 Supabase → Authentication → URL Configuration 里把 Vercel 域名加入 Redirect URLs（本地开发再加 `http://localhost:5173`）。
+
+上线前可以本地先验一遍"路由能不能直接访问"：`pnpm build && pnpm preview`，然后直接请求 `/`、`/todos`、`/stats`、`/settings`、`/login`——5 条都应返回 200 且是应用 HTML（这一步等价于 `vercel.json` 里那条 SPA rewrite，刷新子路由不会 404）。
 
 ## 设计思路
 
