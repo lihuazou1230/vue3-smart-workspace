@@ -10,7 +10,7 @@
  * 侧边栏与设置页同时挂载时不该各自读一份、各自生成一个 objectURL。
  */
 
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { removeAvatarObject, uploadAvatar } from '@/api/avatar'
 import { describeAuthError } from '@/api/auth'
@@ -37,11 +37,31 @@ export function useAvatar() {
   const saving = ref(false)
   const error = ref('')
 
-  /** 展示用头像地址：云端优先，其次本地 */
-  const displayUrl = computed(() => authStore.avatarUrl || localAvatarUrl.value)
+  /**
+   * 头像图加载失败标记。
+   * 为什么需要：GitHub OAuth 登录时 `avatar_url` 指向 `avatars.githubusercontent.com`，
+   * 国内网络经常加载不出来——没有兜底就会显示一张碎图。失败后回落到姓名首字母，
+   * 视觉上依然完整（这也是「渐进增强的降级链路」的一部分）。
+   */
+  const imageFailed = ref(false)
+
+  /** 展示用头像地址：云端优先，其次本地；加载失败一律回落到首字母 */
+  const displayUrl = computed(() =>
+    imageFailed.value ? '' : authStore.avatarUrl || localAvatarUrl.value,
+  )
   const hasAvatar = computed(() => displayUrl.value !== '')
   /** 无头像时的首字母兜底 */
   const fallbackInitial = computed(() => authStore.initial)
+
+  /** 标记当前地址加载失败（组件在 <img @error> 里调用） */
+  function markImageFailed() {
+    imageFailed.value = true
+  }
+
+  // 换了一张头像就重新给一次机会（否则失败标记会一直卡住新图）
+  watch([() => authStore.avatarUrl, localAvatarUrl], () => {
+    imageFailed.value = false
+  })
 
   /** 从 IndexedDB 读本地头像（只读一次；刷新页面后本地头像能恢复） */
   async function loadLocalAvatar(): Promise<void> {
@@ -134,6 +154,7 @@ export function useAvatar() {
     fallbackInitial,
     saving,
     error,
+    markImageFailed,
     loadLocalAvatar,
     saveAvatar,
     removeAvatar,

@@ -25,7 +25,7 @@ const authStore = useAuthStore()
 const todoStore = useTodoStore()
 const avatarOpen = ref(false)
 
-const { displayUrl, fallbackInitial, loadLocalAvatar } = useAvatar()
+const { displayUrl, fallbackInitial, markImageFailed, loadLocalAvatar } = useAvatar()
 void loadLocalAvatar()
 
 const syncTone = computed<'success' | 'warning' | 'info'>(() => {
@@ -95,6 +95,7 @@ async function testConnection() {
           :src="displayUrl"
           alt="当前头像"
           class="h-16 w-16 rounded-full object-cover ring-2 ring-[var(--el-color-primary)]/40"
+          @error="markImageFailed"
         />
         <span
           v-else

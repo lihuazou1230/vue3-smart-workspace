@@ -28,7 +28,7 @@ const todoStore = useTodoStore()
 const router = useRouter()
 
 const avatarOpen = ref(false)
-const { displayUrl, fallbackInitial, loadLocalAvatar } = useAvatar()
+const { displayUrl, fallbackInitial, markImageFailed, loadLocalAvatar } = useAvatar()
 
 // 未登录时本地头像也要能显示（IndexedDB 里可能存过一张）
 void loadLocalAvatar()
@@ -88,6 +88,7 @@ async function handleSignOut() {
           :src="displayUrl"
           alt="用户头像"
           class="h-full w-full object-cover"
+          @error="markImageFailed"
         />
         <span
           v-else

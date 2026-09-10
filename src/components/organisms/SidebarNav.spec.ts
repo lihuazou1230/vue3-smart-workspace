@@ -8,6 +8,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 const avatarStub = vi.hoisted(() => ({
   displayUrl: null as unknown,
   fallbackInitial: null as unknown,
+  markImageFailed: vi.fn(),
 }))
 
 vi.mock('@/api/auth', async () => (await import('@/test/authApiStub')).authApiStub)
@@ -24,6 +25,7 @@ vi.mock('@/composables/useAvatar', () => ({
     fallbackInitial: avatarStub.fallbackInitial,
     saveAvatar: vi.fn(),
     removeAvatar: vi.fn(),
+    markImageFailed: avatarStub.markImageFailed,
     loadLocalAvatar: vi.fn(async () => {}),
     hasAvatar: ref(false),
     error: ref(''),
@@ -85,6 +87,18 @@ describe('SidebarNav', () => {
     expect(wrapper.text()).toContain('统计')
     expect(wrapper.text()).toContain('设置')
     expect(wrapper.find('[data-testid="sidebar-avatar"]').text()).toBe('张三')
+  })
+
+  it('头像加载失败时上报（用于回落到首字母，避免显示碎图）', async () => {
+    avatarStub.displayUrl = ref('https://avatars.githubusercontent.com/u/1')
+    const { wrapper } = await mountSidebar()
+    await nextTick()
+
+    const img = wrapper.find('[data-testid="sidebar-avatar"] img')
+    expect(img.exists()).toBe(true)
+    await img.trigger('error')
+
+    expect(avatarStub.markImageFailed).toHaveBeenCalled()
   })
 
   it('导航项指向对应路由，当前路由高亮', async () => {

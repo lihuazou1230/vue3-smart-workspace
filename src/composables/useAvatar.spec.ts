@@ -1,6 +1,7 @@
-import 'fake-indexeddb/auto'
+﻿import 'fake-indexeddb/auto'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 
 import type { AuthResult, AuthUser, SignUpPayload } from '@/types/auth'
@@ -205,6 +206,25 @@ describe('useAvatar', () => {
       await signIn()
       const { fallbackInitial } = useAvatar()
       expect(fallbackInitial.value).toBe('本地')
+    })
+
+    it('头像图加载失败（如 GitHub 头像 CDN 打不开）时回落到首字母，不显示碎图', async () => {
+      const authStore = await signIn({
+        ...USER,
+        avatarUrl: 'https://avatars.githubusercontent.com/u/1',
+      })
+      const { displayUrl, hasAvatar, markImageFailed } = useAvatar()
+      expect(displayUrl.value).toContain('githubusercontent')
+
+      markImageFailed()
+
+      expect(displayUrl.value).toBe('')
+      expect(hasAvatar.value).toBe(false)
+
+      // 换一张头像后重新给一次机会
+      authStore.user = { ...authStore.user!, avatarUrl: 'https://cdn/new.webp?v=2' }
+      await nextTick()
+      expect(displayUrl.value).toBe('https://cdn/new.webp?v=2')
     })
 
     it('dispose 释放 objectURL 并重置共享状态', async () => {
