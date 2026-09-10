@@ -10,13 +10,15 @@
  * │ 🚪 退出   │   （keep-alive 保留各页状态）        │
  * └──────────┴──────────────────────────────────┘
  *
- * 两个实现要点：
+ * 三个实现要点：
  * - 顶栏搜索直接绑 todoStore.keyword：任务搜索全局可达，不用先进任务页
+ * - **搜索词一出就往任务页带**：列表只在 /todos 渲染，留在仪表板输入等于"输入了却什么都看不到"，
+ *   所以第一次输入（且当前不在任务页）就跳过去，用户立刻看到结果
  * - router-view 外套 keep-alive：切走再切回任务页，筛选条件与滚动位置都还在
  */
 
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import SearchBar from '@/components/molecules/SearchBar.vue'
 import ThemeToggle from '@/components/molecules/ThemeToggle.vue'
@@ -30,9 +32,19 @@ const SIDEBAR_COLLAPSED_KEY = 'smart-workspace:sidebar-collapsed'
 
 const collapsed = useLocalStorage(SIDEBAR_COLLAPSED_KEY, false)
 const route = useRoute()
+const router = useRouter()
 const todoStore = useTodoStore()
 
 const pageTitle = computed(() => route.meta.title ?? '仪表板')
+
+// 顶栏搜索是全局入口：在其他页面输入时把用户带到任务页，否则搜索结果无处可见。
+// 已经在任务页时不做任何跳转（不打断当前操作），清空关键字也不跳。
+watch(
+  () => todoStore.keyword,
+  (keyword) => {
+    if (keyword.trim() && route.name !== 'todos') void router.push({ name: 'todos' })
+  },
+)
 </script>
 
 <template>

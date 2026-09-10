@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 
 const avatarStub = vi.hoisted(() => ({
   displayUrl: null as unknown,
@@ -74,13 +74,44 @@ describe('DefaultLayout', () => {
     expect(wrapper.find('[data-testid="bottom-nav-settings"]').exists()).toBe(true)
   })
 
-  it('顶栏搜索直接写进 todoStore（任务搜索全局可达）', async () => {
-    const { wrapper } = await mountLayout('/')
+  it('顶栏搜索直接写进 todoStore，并把用户带到任务页（否则结果无处可见）', async () => {
+    const { wrapper, router } = await mountLayout('/')
     const store = useTodoStore()
+    expect(router.currentRoute.value.name).toBe('dashboard')
 
     await wrapper.find('input[placeholder="搜索任务…"]').setValue('周报')
+    // 导航是异步的（要走守卫），等微任务跑完
+    await flushPromises()
 
     expect(store.keyword).toBe('周报')
+    expect(router.currentRoute.value.name).toBe('todos')
+  })
+
+  it('已在任务页输入搜索词：不重复跳转（不打断当前操作）', async () => {
+    const { wrapper, router } = await mountLayout('/todos')
+    const pushSpy = vi.spyOn(router, 'push')
+
+    await wrapper.find('input[placeholder="搜索任务…"]').setValue('周报')
+    await flushPromises()
+
+    expect(useTodoStore().keyword).toBe('周报')
+    expect(pushSpy).not.toHaveBeenCalled()
+    expect(router.currentRoute.value.name).toBe('todos')
+  })
+
+  it('清空搜索词不触发跳转（在设置页清空应留在设置页）', async () => {
+    const { wrapper, router } = await mountLayout('/settings')
+
+    await wrapper.find('input[placeholder="搜索任务…"]').setValue('周报')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('todos')
+
+    await router.push('/settings')
+    await wrapper.find('input[placeholder="搜索任务…"]').setValue('')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('settings')
+    expect(useTodoStore().keyword).toBe('')
   })
 
   it('顶栏不再重复放设置入口（设置统一在侧边栏底部）', async () => {
