@@ -80,6 +80,18 @@ export function describeAuthError(error: unknown): string {
     return '邮箱格式不正确'
   if (text.includes('signups not allowed') || text.includes('signup is disabled'))
     return '当前项目已关闭注册，请使用已有账号登录'
+  /**
+   * 发信失败：最常见的原因不是 SMTP 配错，而是**收件邮箱根本不存在**。
+   * QQ 邮箱的 SMTP 在 RCPT 阶段一律回 250，到 DATA 阶段才校验并拒收
+   * （`550 The recipient may contain a non-existent account`），
+   * GoTrue 于是统一报 `Error sending confirmation email`，用户完全看不出问题在哪。
+   */
+  if (text.includes('error sending confirmation email'))
+    return '验证邮件发送失败：请确认这个邮箱真实存在且能收信（邮箱不存在时会被邮件服务拒收）'
+  if (text.includes('error sending recovery email'))
+    return '重置密码邮件发送失败：请确认这个邮箱真实存在且能收信'
+  if (text.includes('error sending email') || text.includes('error sending magic link'))
+    return '邮件发送失败：请确认这个邮箱真实存在，或稍后重试'
   if (text.includes('rate limit') || text.includes('too many requests'))
     return '操作过于频繁，请稍后再试'
   if (text.includes('failed to fetch') || text.includes('networkerror'))

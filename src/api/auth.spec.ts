@@ -126,6 +126,15 @@ describe('describeAuthError（英文报错 → 中文文案）', () => {
     expect(describeAuthError(new Error('Failed to fetch'))).toBe('网络不可用，请检查网络后重试')
   })
 
+  it('发信失败翻译成可操作的中文（真凶往往是收件邮箱不存在）', () => {
+    // GoTrue 对「SMTP 拒收」统一报这个英文错误，用户看不出问题在哪
+    expect(describeAuthError(new Error('Error sending confirmation email'))).toContain(
+      '邮箱真实存在',
+    )
+    expect(describeAuthError(new Error('Error sending recovery email'))).toContain('邮箱真实存在')
+    expect(describeAuthError(new Error('Error sending magic link email'))).toContain('邮件发送失败')
+  })
+
   it('未配置 Supabase 时给出配置引导', () => {
     expect(describeAuthError(new SupabaseUnavailableError())).toContain('.env.local')
   })

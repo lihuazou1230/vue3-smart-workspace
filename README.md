@@ -234,6 +234,25 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
 > 留空时应用自动进入**本地模式**：功能全部可用、不强制登录、不做云同步，登录页只展示配置引导，
 > 不会把用户锁在一个永远登不进去的页面上。
 
+### 邮件通道（可选，开启「Confirm email」才需要）
+
+Supabase 内置的发信服务**只给项目团队成员邮箱发信，且限速 2 封/小时**
+（[官方说明](https://supabase.com/docs/guides/auth/auth-smtp)），所以注册用别的邮箱就会失败。
+配置自定义 SMTP 后限制解除（本项目实测上限提到 30 封/小时）。以 QQ 邮箱为例：
+
+| 字段 | 值 |
+| ---- | -- |
+| 发件人邮箱 / 用户名 | 同一个 QQ 邮箱（**必须一致**，QQ 会校验 From 与认证账号） |
+| 发信人姓名 | 任意 |
+| 主机 / 端口 | `smtp.qq.com` / `465`（隐式 TLS；`587` STARTTLS 同样可用） |
+| 密码 | QQ 邮箱的 **SMTP 授权码**（不是登录密码），入口：账号与安全 → 安全设置 |
+
+> ⚠️ **排查「Error sending confirmation email」的正确姿势**：这个错误最常见的病因不是 SMTP 配错，
+> 而是**收件邮箱根本不存在**。QQ 的 SMTP 在 `RCPT` 阶段对任何地址都回 `250 OK`，
+> 到 `DATA` 阶段才校验并拒收（`550 The recipient may contain a non-existent account`），
+> GoTrue 于是统一报这个英文错误。本项目已把它翻译成可操作的中文提示（见 `describeAuthError`）。
+> 想绕过邮件通道：把「Confirm email」关掉即可注册即登录。
+
 ### 数据模型（`supabase/schema.sql`）
 
 ```sql
