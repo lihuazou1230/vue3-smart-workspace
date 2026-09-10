@@ -254,6 +254,9 @@ create policy "todos: own rows only" on public.todos
 
 - **结构化查询字段单独成列**（`title` / `completed` / `sort_order`），其余扩展字段进 `payload jsonb`——
   以后加字段不用改表
+- **显式 GRANT**：脚本给 `authenticated` 授了表权限、并显式 `revoke` 掉 `anon`。
+  原因是 RLS 只负责"过滤行"，**前提是角色先有表级权限**——创建项目时若按官方建议关掉
+  「自动暴露新表」，Supabase 就不再自动授权新表，缺了这行会直接报 `42501 permission denied`
 - 头像 bucket `avatars`：公开读，写入限本人目录 `user_id/avatar.webp`（策略校验路径第一段 = `auth.uid()`）
 
 ### 同步模型：云端为准 + 本地缓存 + 离线队列（`stores/todoStore.ts`）

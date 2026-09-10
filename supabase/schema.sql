@@ -65,6 +65,20 @@ create policy "todos: own rows only"
   with check (auth.uid() = user_id);
 
 -- ---------------------------------------------------------------------------
+-- 表级权限（GRANT / REVOKE）
+--   容易踩的坑：RLS 策略只负责「过滤行」，前提是角色**先有表级权限**。
+--   创建项目时如果把「自动暴露新表」关掉（官方也建议关），Supabase 不会再把新表
+--   自动授权给 Data API 角色，此时没有下面的 GRANT 会直接报
+--   42501 permission denied（连 RLS 都走不到）。显式写出来，开/关都稳。
+--
+--   只授权给 authenticated：未登录（anon）连表权限都没有，等于多一层防护；
+--   即使未来某条策略写错，anon 也读不到任何行。
+-- ---------------------------------------------------------------------------
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on table public.todos to authenticated;
+revoke all on table public.todos from anon;
+
+-- ---------------------------------------------------------------------------
 -- 头像 Storage：avatars bucket
 --   公开读（头像要在 <img> 里直接引用），写入限本人目录 user_id/avatar.webp
 -- ---------------------------------------------------------------------------
