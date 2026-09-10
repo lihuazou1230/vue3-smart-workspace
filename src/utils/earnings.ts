@@ -140,6 +140,31 @@ export function isPaidDay(config: EarningsConfig, now: Date): boolean {
   return day !== 0 && day !== 6
 }
 
+/**
+ * 上月同期已赚（分）：把「同一天同一时刻」搬到上个月再算一遍，用于月度趋势对比。
+ * 上月没有这一天时（如 3/31 → 2 月）取上月最后一天，时间部分保持不变。
+ */
+export function lastMonthSamePeriodFen(config: EarningsConfig, now: Date): number {
+  if (yuanToFen(config.monthlySalary) <= 0 || config.monthWorkDays <= 0) return 0
+
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  const lastMonthDate = new Date(year, month - 1, 1)
+  const lastMonthYear = lastMonthDate.getFullYear()
+  const lastMonth = lastMonthDate.getMonth()
+  const lastMonthDays = new Date(lastMonthYear, lastMonth + 1, 0).getDate()
+
+  const sameMoment = new Date(
+    lastMonthYear,
+    lastMonth,
+    Math.min(now.getDate(), lastMonthDays),
+    now.getHours(),
+    now.getMinutes(),
+    now.getSeconds(),
+  )
+  return monthlyEarnedFen(config, sameMoment)
+}
+
 /** 本月计薪天数（整月，含尚未到来的日子） */
 export function paidDaysInMonth(config: EarningsConfig, now: Date): number {
   const year = now.getFullYear()
@@ -240,11 +265,14 @@ export function computeEarnings(config: EarningsConfig, now: Date = new Date()):
   const elapsed = elapsedWorkSeconds(config, now)
   const status = resolveEarningsStatus(config, now)
   const change = nextChange(config, now)
+  const monthEarned = monthlyEarnedFen(config, now)
+  const lastMonth = lastMonthSamePeriodFen(config, now)
 
   return {
     status,
     earnedFen: earnedFen(config, now),
-    monthEarnedFen: monthlyEarnedFen(config, now),
+    monthEarnedFen: monthEarned,
+    monthDeltaPercent: lastMonth > 0 ? ((monthEarned - lastMonth) / lastMonth) * 100 : 0,
     monthPaidDays: paidDaysInMonth(config, now),
     monthElapsedPaidDays: elapsedPaidDays(config, now),
     dailyFen: dailyEarnedFen(config),

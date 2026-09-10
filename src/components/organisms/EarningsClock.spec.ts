@@ -84,9 +84,45 @@ describe('EarningsClock', () => {
     expect(monthElement(wrapper).text()).toContain('7,125.00')
     expect(monthElement(wrapper).text()).toContain('已计薪 8/22 天')
 
-    // 层级：今日金额 3xl 起步，月金额是 text-sm
-    expect(amountElement(wrapper).classes().join(' ')).toContain('text-3xl')
+    // 层级：今日金额 text-4xl 起步，月金额是 text-sm
+    expect(amountElement(wrapper).classes().join(' ')).toContain('text-4xl')
     expect(monthElement(wrapper).classes().join(' ')).toContain('text-sm')
+    // 深绿强调卡（C 位）
+    expect(wrapper.classes()).toContain('card-accent')
+  })
+
+  it('今日金额逐位上滑滚动（odometer）：每位停在正确的数字上', () => {
+    seed(CONFIG)
+    freezeTime(10)
+    const wrapper = mount(EarningsClock)
+
+    // 125.00 => 6 个数字位（含 2 位小数），位移分别是 -1em/-2em/-5em/-0em/-0em
+    const transforms = amountElement(wrapper)
+      .findAll('.digit-strip')
+      .map((s) => /translateY\(([^)]+)\)/.exec(s.attributes('style') ?? '')?.[1])
+    expect(transforms).toEqual(['-1em', '-2em', '-5em', '-0em', '-0em'])
+    // 等宽防抖靠 CSS 类（custom.css 里给 .digit-window/.digit-strip 统一加 tabular-nums）
+    expect(amountElement(wrapper).find('.digit-window').exists()).toBe(true)
+  })
+
+  it('目标进度条展示「今日已赚 / 目标日收入」', () => {
+    seed(CONFIG)
+    freezeTime(10)
+    const wrapper = mount(EarningsClock)
+
+    expect(wrapper.text()).toContain('今日进度 · 目标日收入 ¥1,000.00')
+    expect(wrapper.find('[role="progressbar"]').attributes('aria-valuenow')).toBe('13')
+  })
+
+  it('本月已赚展示相对上月同期的涨跌徽章', () => {
+    seed(CONFIG)
+    freezeTime(12)
+    const wrapper = mount(EarningsClock)
+
+    const trend = wrapper.find('[data-testid="earnings-month-trend"]')
+    expect(trend.exists()).toBe(true)
+    expect(trend.text()).toContain('+37.2%')
+    expect(trend.attributes('aria-label')).toContain('较上月同期')
   })
 
   it('周末：今日金额隐藏，但本月已赚（月度累计）仍然展示', () => {

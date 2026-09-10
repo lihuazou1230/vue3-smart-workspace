@@ -48,6 +48,8 @@ export interface EarningsSnapshot {
   earnedFen: number
   /** 本月已赚（分）——次要指标 */
   monthEarnedFen: number
+  /** 本月已赚相对「上月同期」的涨跌百分比（上月同期为 0 时为 0） */
+  monthDeltaPercent: number
   /** 本月计薪天数（整月） */
   monthPaidDays: number
   /** 本月已计薪天数（已完整过去 + 今天，非计薪日不加） */

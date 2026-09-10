@@ -14,6 +14,7 @@ import {
   formatFen,
   hourlyEarnedFen,
   isEarningsConfigured,
+  lastMonthSamePeriodFen,
   monthlyEarnedFen,
   nextChange,
   paidDaysInMonth,
@@ -282,6 +283,37 @@ describe('本月已赚（次要指标）', () => {
     expect(formatFen(snapshot.monthEarnedFen)).toBe('7,125.00')
     expect(snapshot.monthPaidDays).toBe(22)
     expect(snapshot.monthElapsedPaidDays).toBe(8)
+  })
+})
+
+describe('上月同期（月度趋势对比）', () => {
+  it('把同一天同一时刻搬到上个月再算一遍', () => {
+    // 2026-08-10 是周一；上月同期（8/1~8/9 的完整计薪日）：
+    // 8/3(一)~8/7(五) = 5 天，8/1、8/2 为周末 => 5 × 1000 = 5000，加当日 375（12:00）
+    expect(formatFen(lastMonthSamePeriodFen(CONFIG, at(12, 0)))).toBe('5,375.00')
+  })
+
+  it('上月同日不存在时取上月最后一天', () => {
+    // 3/31 → 2 月没有 31 日，取 2/28（2026 非闰年）
+    const march31 = new Date(2026, 2, 31, 10, 0, 0)
+    const feb28 = new Date(2026, 1, 28, 10, 0, 0)
+    expect(lastMonthSamePeriodFen(CONFIG, march31)).toBe(monthlyEarnedFen(CONFIG, feb28))
+  })
+
+  it('未配置月薪时为 0', () => {
+    expect(lastMonthSamePeriodFen({ ...CONFIG, monthlySalary: 0 }, at(12))).toBe(0)
+  })
+
+  it('快照给出本月相对上月同期的涨跌百分比', () => {
+    const snapshot = computeEarnings(CONFIG, at(12, 0))
+    // 本月 7375 / 上月同期 5375 => +37.2%
+    expect(snapshot.monthDeltaPercent).toBeCloseTo(37.2, 1)
+  })
+
+  it('上月同期无法计算（为 0）时涨跌为 0，不产生 Infinity', () => {
+    const snapshot = computeEarnings({ ...CONFIG, monthlySalary: 0 }, at(12, 0))
+    expect(snapshot.monthDeltaPercent).toBe(0)
+    expect(Number.isFinite(snapshot.monthDeltaPercent)).toBe(true)
   })
 })
 
