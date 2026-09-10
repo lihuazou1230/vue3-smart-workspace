@@ -1,0 +1,238 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { Todo } from '@/types/todo'
+import { SupabaseUnavailableError } from './supabase'
+
+const holder = vi.hoisted(() => ({ client: null as unknown }))
+
+vi.mock('./supabase', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./supabase')>()
+  return {
+    ...actual,
+    requireSupabaseClient: () => {
+      if (!holder.client) throw new actual.SupabaseUnavailableError()
+      return holder.client
+    },
+  }
+})
+
+import {
+  clearRemoteTodos,
+  deleteRemoteTodos,
+  fetchRemoteTodos,
+  fromRemoteRow,
+  pushRemoteTodos,
+  toRemoteRow,
+} from './todoRemote'
+
+function todo(overrides: Partial<Todo> = {}): Todo {
+  return {
+    id: 't1',
+    title: '写周报',
+    status: 'active',
+    priority: 'high',
+    dueDate: '2026-09-10',
+    createdAt: '2026-09-09T00:00:00.000Z',
+    pinned: true,
+    subtasks: [{ id: 's1', title: '收集数据', completed: true }],
+    ...overrides,
+  }
+}
+
+/** 可链式调用、可 await 的查询构造器桩（supabase 的查询构造器本身就是 thenable） */
+interface QueryStub {
+  select: ReturnType<typeof vi.fn>
+  eq: ReturnType<typeof vi.fn>
+  order: ReturnType<typeof vi.fn>
+  in: ReturnType<typeof vi.fn>
+  delete: ReturnType<typeof vi.fn>
+  upsert: ReturnType<typeof vi.fn>
+  then: (resolve: (value: unknown) => unknown) => Promise<unknown>
+}
+
+function queryStub(
+  result: { data?: unknown; error?: unknown } = { data: [], error: null },
+): QueryStub {
+  const builder = {} as QueryStub
+  const chain = () => builder
+  builder.select = vi.fn(chain)
+  builder.eq = vi.fn(chain)
+  builder.order = vi.fn(chain)
+  builder.in = vi.fn(chain)
+  builder.delete = vi.fn(chain)
+  builder.upsert = vi.fn(async () => result)
+  builder.then = (resolve) => Promise.resolve(result).then(resolve)
+  return builder
+}
+
+describe('任务行映射', () => {
+  it('本地任务 → 云端行：结构化字段成列，扩展字段进 payload', () => {
+    const row = toRemoteRow('u1', { todo: todo(), position: 3 })
+    expect(row).toEqual({
+      id: 't1',
+      user_id: 'u1',
+      title: '写周报',
+      completed: false,
+      sort_order: 3,
+      payload: {
+        priority: 'high',
+        dueDate: '2026-09-10',
+        createdAt: '2026-09-09T00:00:00.000Z',
+        completedAt: null,
+        pinned: true,
+        subtasks: [{ id: 's1', title: '收集数据', completed: true }],
+      },
+    })
+  })
+
+  it('已完成任务 completed 列为 true', () => {
+    const row = toRemoteRow('u1', {
+      todo: todo({ status: 'completed', completedAt: '2026-09-10T01:00:00.000Z' }),
+      position: 0,
+    })
+    expect(row.completed).toBe(true)
+    expect(row.payload?.completedAt).toBe('2026-09-10T01:00:00.000Z')
+  })
+
+  it('云端行 → 本地任务：往返一致', () => {
+    const original = todo()
+    const restored = fromRemoteRow(toRemoteRow('u1', { todo: original, position: 0 }))
+    expect(restored).toEqual(original)
+  })
+
+  it('云端脏数据全部有兜底（旧版本客户端写入的缺字段行）', () => {
+    const restored = fromRemoteRow({
+      id: 't9',
+      title: '旧任务',
+      completed: true,
+      payload: {
+        priority: 'urgent', // 非法优先级 → medium
+        subtasks: [{ id: 'ok' }, 'garbage', { id: 's2', title: '有效', completed: 1 }],
+        dueDate: '',
+      },
+      sort_order: 0,
+      created_at: '2026-01-01T00:00:00.000Z',
+    })
+
+    expect(restored).toMatchObject({
+      id: 't9',
+      title: '旧任务',
+      status: 'completed',
+      priority: 'medium',
+      dueDate: undefined,
+      pinned: false,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    })
+    // 只有结构完整的子任务被保留，completed 非 true 一律按未完成
+    expect(restored.subtasks).toEqual([{ id: 's2', title: '有效', completed: false }])
+  })
+
+  it('payload 为 null 也不崩', () => {
+    const restored = fromRemoteRow({
+      id: 't1',
+      title: '',
+      completed: false,
+      payload: null,
+      sort_order: 0,
+    })
+    expect(restored.priority).toBe('medium')
+    expect(restored.subtasks).toEqual([])
+    expect(restored.status).toBe('active')
+  })
+})
+
+describe('云端读写', () => {
+  beforeEach(() => {
+    holder.client = null
+  })
+
+  it('拉取：按 user_id 过滤并按 sort_order 排序', async () => {
+    const builder = queryStub({
+      data: [
+        {
+          id: 't1',
+          title: 'A',
+          completed: false,
+          payload: { priority: 'low' },
+          sort_order: 0,
+          created_at: '2026-09-01T00:00:00.000Z',
+        },
+        {
+          id: 't2',
+          title: 'B',
+          completed: true,
+          payload: { priority: 'high' },
+          sort_order: 1,
+          created_at: '2026-09-02T00:00:00.000Z',
+        },
+      ],
+      error: null,
+    })
+    const from = vi.fn(() => builder)
+    holder.client = { from }
+
+    const todos = await fetchRemoteTodos('u1')
+
+    expect(from).toHaveBeenCalledWith('todos')
+    expect(builder.eq).toHaveBeenCalledWith('user_id', 'u1')
+    expect(builder.order).toHaveBeenCalledWith('sort_order', { ascending: true })
+    expect(todos.map((t) => t.id)).toEqual(['t1', 't2'])
+    expect(todos[1].status).toBe('completed')
+  })
+
+  it('拉取失败时抛错', async () => {
+    holder.client = {
+      from: vi.fn(() => queryStub({ data: null, error: { message: 'permission denied' } })),
+    }
+    await expect(fetchRemoteTodos('u1')).rejects.toMatchObject({ message: 'permission denied' })
+  })
+
+  it('推送：upsert 到 todos 表并带 user_id', async () => {
+    const builder = queryStub()
+    holder.client = { from: vi.fn(() => builder) }
+
+    await pushRemoteTodos('u1', [{ todo: todo(), position: 0 }])
+
+    expect(builder.upsert).toHaveBeenCalledTimes(1)
+    const [rows, options] = builder.upsert.mock.calls[0] as unknown as [
+      Array<{ user_id: string }>,
+      unknown,
+    ]
+    expect(rows[0].user_id).toBe('u1')
+    expect(options).toEqual({ onConflict: 'id' })
+  })
+
+  it('空列表不发请求（离线队列清空后不产生无意义往返）', async () => {
+    const from = vi.fn()
+    holder.client = { from }
+
+    await pushRemoteTodos('u1', [])
+    await deleteRemoteTodos([])
+
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('删除：按 id 批量删', async () => {
+    const builder = queryStub()
+    holder.client = { from: vi.fn(() => builder) }
+
+    await deleteRemoteTodos(['t1', 't2'])
+    expect(builder.in).toHaveBeenCalledWith('id', ['t1', 't2'])
+  })
+
+  it('清空：按 user_id 删除（迁移前腾空云端）', async () => {
+    const builder = queryStub()
+    holder.client = { from: vi.fn(() => builder) }
+
+    await clearRemoteTodos('u1')
+    expect(builder.eq).toHaveBeenCalledWith('user_id', 'u1')
+  })
+
+  it('未配置 Supabase 时抛引导错误', async () => {
+    await expect(fetchRemoteTodos('u1')).rejects.toBeInstanceOf(SupabaseUnavailableError)
+    await expect(pushRemoteTodos('u1', [{ todo: todo(), position: 0 }])).rejects.toBeInstanceOf(
+      SupabaseUnavailableError,
+    )
+    await expect(deleteRemoteTodos(['t1'])).rejects.toBeInstanceOf(SupabaseUnavailableError)
+  })
+})
