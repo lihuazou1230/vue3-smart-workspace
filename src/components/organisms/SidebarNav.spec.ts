@@ -101,6 +101,20 @@ describe('SidebarNav', () => {
     expect(avatarStub.markImageFailed).toHaveBeenCalled()
   })
 
+  it('点头像弹窗渲染在侧边栏之外（aside 的 backdrop-filter 会把 fixed 弹窗困在 240px 里）', async () => {
+    const { wrapper } = await mountSidebar()
+
+    await wrapper.find('[data-testid="sidebar-avatar"]').trigger('click')
+    for (let i = 0; i < 3; i += 1) await nextTick()
+
+    // 弹窗确实出现了
+    expect(wrapper.find('.el-overlay').exists()).toBe(true)
+    // 但它不是侧边栏的后代（否则会被限制在侧边栏内定位）
+    const sidebar = wrapper.find('[data-testid="sidebar"]')
+    expect(sidebar.find('.el-overlay').exists()).toBe(false)
+    expect(sidebar.find('[data-testid="avatar-file-input"]').exists()).toBe(false)
+  })
+
   it('导航项指向对应路由，当前路由高亮', async () => {
     const { wrapper, router } = await mountSidebar({ path: '/stats' })
 

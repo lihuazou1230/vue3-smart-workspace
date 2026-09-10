@@ -163,8 +163,16 @@ async function handleSignOut() {
         <span v-if="!collapsed">收起</span>
       </BaseButton>
     </div>
-
-    <!-- 头像上传 / 裁剪 -->
-    <AvatarUpload v-model="avatarOpen" />
   </aside>
+
+  <!--
+    头像弹窗必须放在 <aside> **外面**（同级根节点，Vue 3 支持多根）：
+    aside 上有 `backdrop-blur-md`，而带 backdrop-filter 的元素会成为
+    `position: fixed` 后代的包含块 —— 弹窗留在里面时，遮罩/弹窗会被限制在
+    240px 宽的侧边栏内，看起来就是"弹窗出现在侧边栏里"而不是页面中央。
+
+    （替代方案是给 el-dialog 加 append-to-body 把节点传送到 body，
+    但那样弹窗内容会脱离组件树，测试里就查不到内部节点了。）
+  -->
+  <AvatarUpload v-model="avatarOpen" />
 </template>
