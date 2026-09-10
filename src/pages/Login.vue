@@ -296,7 +296,12 @@ function enterLocalMode() {
         </p>
       </section>
 
-      <p class="mt-4 text-center text-xs text-slate-400 dark:text-slate-500">
+      <!-- 只在本地模式下给「随便逛逛」出口：配了 Supabase 后点它会被守卫弹回来，等于死链 -->
+      <p
+        v-if="isLocalMode"
+        data-testid="login-browse-local"
+        class="mt-4 text-center text-xs text-slate-400 dark:text-slate-500"
+      >
         <router-link :to="{ name: 'dashboard' }" class="underline hover:text-slate-600">
           先随便逛逛（本地模式）
         </router-link>

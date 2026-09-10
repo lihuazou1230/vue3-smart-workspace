@@ -232,6 +232,19 @@ describe('Login 页', () => {
 
       expect(router.currentRoute.value.name).toBe('dashboard')
     })
+
+    it('本地模式才给「先随便逛逛」出口', async () => {
+      configureSupabase(false)
+      const local = await mountLogin()
+      expect(local.wrapper.find('[data-testid="login-browse-local"]').exists()).toBe(true)
+    })
+  })
+
+  describe('已配置 Supabase', () => {
+    it('不显示「先随便逛逛」：点了会被守卫弹回登录页，等于死链', async () => {
+      const { wrapper } = await mountLogin()
+      expect(wrapper.find('[data-testid="login-browse-local"]').exists()).toBe(false)
+    })
   })
 
   describe('已登录用户', () => {
