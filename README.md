@@ -1,5 +1,12 @@
 # Vue 3 智能工作台
 
+[![Deploy to GitHub Pages](https://github.com/lihuazou1230/vue3-smart-workspace/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/lihuazou1230/vue3-smart-workspace/actions/workflows/deploy-pages.yml)
+![Vue 3](https://img.shields.io/badge/Vue-3-42b883?logo=vuedotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8?logo=tailwindcss&logoColor=white)
+![Element Plus](https://img.shields.io/badge/Element%20Plus-2-409eff?logo=element&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+
 一个集**任务管理、今日聚焦、子任务、批量操作、数据可视化、天气信息与外观自定义**于一体的个人效率仪表板，基于 Vue 3 + TypeScript + Tailwind CSS + Element Plus 构建。第五阶段接入 **Supabase**（Auth + Postgres RLS + Storage）后支持真实注册/登录与任务多设备同步；**不配置 Supabase 也能以「本地模式」完整使用**，不会把功能锁死。
 
 > 当前进度：**第一 ~ 五阶段已完成**（基础建设 / 任务管理闭环 / 可视化与天气集成 / 体验优化与交付 / 用户系统与多设备同步）。
