@@ -1,4 +1,4 @@
-﻿import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -62,7 +62,9 @@ async function mountSidebar(options: { path?: string; collapsed?: boolean } = {}
 describe('SidebarNav', () => {
   beforeEach(() => {
     resetAuthApiStub()
-    vi.unstubAllEnvs()
+    // 显式清空而不是 unstubAllEnvs：后者会把开发机 .env.local 的真实配置读回来
+    vi.stubEnv('VITE_SUPABASE_URL', '')
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '')
     localStorage.clear()
     avatarStub.displayUrl = ref('')
     avatarStub.fallbackInitial = ref('张三')

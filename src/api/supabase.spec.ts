@@ -19,7 +19,9 @@ vi.mock('@supabase/supabase-js', () => ({
 
 describe('Supabase 配置读取与客户端单例', () => {
   beforeEach(() => {
-    vi.unstubAllEnvs()
+    // 显式清空而不是 unstubAllEnvs：后者会把开发机 .env.local 的真实配置读回来
+    vi.stubEnv('VITE_SUPABASE_URL', '')
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '')
     resetSupabaseClient()
     createClientMock.mockClear()
   })

@@ -1,4 +1,4 @@
-﻿import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -51,7 +51,7 @@ async function fill(
 describe('Login 页', () => {
   beforeEach(() => {
     resetAuthApiStub()
-    vi.unstubAllEnvs()
+    // 本文件默认按「已配置 Supabase」测；下面的用例再按需切回未配置
     configureSupabase(true)
     localStorage.clear()
   })
