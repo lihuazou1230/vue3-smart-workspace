@@ -458,10 +458,13 @@ Vercel 会自动挑满足条件的版本；不使用 `packageManager` 字段，V
 
 **踩坑记录：部署报 `status 400 … due to in progress deployment`**
 
-某次部署失败后，Pages 侧会残留一条 `in progress` 的部署记录，**之后每次部署都被直接拒绝**，
-而 GitHub Deployment 列表里那条显示的是 `failure`（两套账，很容易白查半天）。
-工作流里的「清理卡住的 Pages 部署」步骤会在部署前把这些残留记录取消掉，让流程自愈；
-若那一步也失败（权限不足），可以手动在仓库 **Deployments** 页面取消后再重跑。
+GitHub 的已知问题（[actions/deploy-pages#22](https://github.com/actions/deploy-pages/issues/22)，96 条同类反馈）：
+某次部署被中断/取消后，Pages 会残留一条 `in progress` 的部署记录，**之后每次部署都被直接拒绝**，
+报 `Please cancel <sha> first or wait for it to complete`；而仓库 Deployments 列表里那条显示的是 `failure`
+（两套账，很容易白查半天）。GitHub 官方在该 Issue 里确认已修复，但**已被锁住的记录最长要 1 小时才自动解除**。
+
+工作流的「清理陈旧的部署记录」步骤会在部署前，用 Deployments API 把非 `success` 的历史部署标为
+`inactive` 并删除（删的是记录，不影响已发布的内容），因此流水线能自愈、不用手工干预。
 
 ### 上线后的自检清单
 
