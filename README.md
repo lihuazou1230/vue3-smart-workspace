@@ -424,8 +424,8 @@ Vite 的 `VITE_*` 是**构建时内联**的，所以变量要在 Vercel 项目�
   更严谨可引入 `updated_at` 版本号做乐观并发控制
 - PWA 离线、键盘快捷键（VueUse `useMagicKeys`）、数据导入导出、命令面板、迷你月历、连续打卡（Streak）
 - 拖拽排序目前用原生 HTML5 Drag & Drop（无依赖）；若要更顺滑的跨列表拖拽，可引入 `@vueuse/integrations` + `sortablejs`
-- 测试覆盖率提升（当前 **51 个测试文件 / 500+ 用例**，覆盖纯函数、store 状态流转、路由守卫与关键组件交互）
+- 测试覆盖率提升（当前 **57 个测试文件 / 601 个用例**，覆盖纯函数、store 状态流转、路由守卫与关键组件交互）
 
 ## 许可证
 
-MIT
+[MIT](./LICENSE)
