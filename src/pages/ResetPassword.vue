@@ -84,7 +84,7 @@ async function submit() {
           🔐 设置新密码
         </h1>
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          重置链接仅对当前浏览器有效，设置完成后即可用新密码登录
+          重置链接只能用一次、约 1 小时后过期；设置完成后即可用新密码登录
         </p>
       </header>
 
