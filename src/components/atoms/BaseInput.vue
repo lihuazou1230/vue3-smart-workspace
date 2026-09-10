@@ -8,7 +8,7 @@ const model = defineModel<string>({ default: '' })
 
 withDefaults(
   defineProps<{
-    type?: 'text' | 'date' | 'password' | 'search'
+    type?: 'text' | 'date' | 'time' | 'number' | 'password' | 'search'
     placeholder?: string
     disabled?: boolean
     /** 可清空 */
