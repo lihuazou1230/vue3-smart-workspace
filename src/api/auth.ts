@@ -7,6 +7,7 @@
  */
 
 import type { AuthResult, AuthUser, SignUpPayload } from '@/types/auth'
+import { appUrl } from '@/utils/appUrl'
 import {
   SupabaseUnavailableError,
   getSupabaseClient,
@@ -115,7 +116,9 @@ export async function signUpWithPassword(payload: SignUpPayload): Promise<AuthRe
       password: payload.password,
       options: {
         data: { display_name: payload.displayName },
-        emailRedirectTo: typeof location !== 'undefined' ? location.origin : undefined,
+        // 用 appUrl() 而不是 location.origin：GitHub Pages 部署在 /<repo>/ 子路径下，
+        // 只拼 origin 会得到不是本应用的地址，且匹配不上 Supabase 的 Redirect URLs 白名单
+        emailRedirectTo: appUrl(),
       },
     })
     if (error) return failure(error)
@@ -176,8 +179,8 @@ export async function resendConfirmEmail(email: string, redirectTo?: string): Pr
       type: 'signup',
       email,
       options: {
-        emailRedirectTo:
-          redirectTo ?? (typeof location !== 'undefined' ? location.origin : undefined),
+        // 同上：子路径部署下必须带上 base，否则白名单匹配失败
+        emailRedirectTo: redirectTo ?? appUrl(),
       },
     })
     if (error) return failure(error)
@@ -200,9 +203,8 @@ export async function sendPasswordReset(email: string, redirectTo?: string): Pro
   try {
     const client = requireSupabaseClient()
     const { error } = await client.auth.resetPasswordForEmail(email, {
-      redirectTo:
-        redirectTo ??
-        (typeof location !== 'undefined' ? `${location.origin}/reset-password` : undefined),
+      // 必须带上部署 base（GitHub Pages 是 /<repo>/），否则重置链接会跳到应用之外
+      redirectTo: redirectTo ?? appUrl('reset-password'),
     })
     if (error) return failure(error)
     return { ok: true, message: '重置链接已发送，请到邮箱查收（没收到先看垃圾箱）' }

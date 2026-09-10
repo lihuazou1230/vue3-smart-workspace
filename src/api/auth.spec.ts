@@ -312,6 +312,59 @@ describe('认证动作（已配置）', () => {
     )
   })
 
+  /**
+   * 回归保护：部署在子路径（GitHub Pages 的 /<repo>/）时，默认回跳地址必须带上前缀。
+   * 以前这里拼的是 location.origin，线上会得到不是本应用的地址、且匹配不上白名单。
+   */
+  describe('默认回跳地址带部署子路径', () => {
+    async function withBase<T>(base: string, run: () => Promise<T>): Promise<T> {
+      const original = import.meta.env.BASE_URL
+      try {
+        ;(import.meta.env as Record<string, unknown>).BASE_URL = base
+        return await run()
+      } finally {
+        ;(import.meta.env as Record<string, unknown>).BASE_URL = original
+      }
+    }
+
+    it('注册验证邮件的回跳地址 = origin + base', async () => {
+      await withBase('/vue3-smart-workspace/', async () => {
+        await signUpWithPassword({ email: 'a@b.com', password: 'secret1', displayName: '张三' })
+      })
+
+      const client = holder.client as ReturnType<typeof fakeClient>
+      expect(client.auth.signUp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({
+            emailRedirectTo: `${location.origin}/vue3-smart-workspace/`,
+          }),
+        }),
+      )
+    })
+
+    it('重置密码邮件的回跳地址 = origin + base + reset-password', async () => {
+      await withBase('/vue3-smart-workspace/', async () => {
+        await sendPasswordReset('zhang@example.com')
+      })
+
+      const client = holder.client as ReturnType<typeof fakeClient>
+      expect(client.auth.resetPasswordForEmail).toHaveBeenCalledWith('zhang@example.com', {
+        redirectTo: `${location.origin}/vue3-smart-workspace/reset-password`,
+      })
+    })
+
+    it('显式传入 redirectTo 时优先使用调用方的值（不被 base 覆盖）', async () => {
+      await withBase('/vue3-smart-workspace/', async () => {
+        await sendPasswordReset('zhang@example.com', 'https://custom.example.com/reset')
+      })
+
+      const client = holder.client as ReturnType<typeof fakeClient>
+      expect(client.auth.resetPasswordForEmail).toHaveBeenCalledWith('zhang@example.com', {
+        redirectTo: 'https://custom.example.com/reset',
+      })
+    })
+  })
+
   it('重发遇到频率限制：翻译成中文提示（连续点会被限流）', async () => {
     holder.client = fakeClient({
       resend: vi.fn(async () => ({ data: {}, error: { message: 'email rate limit exceeded' } })),
