@@ -125,3 +125,24 @@ create policy "avatars: owner delete"
     bucket_id = 'avatars'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- ============================================================================
+-- 自检（跑完这一段直接在下方 Results 里看结果）
+--   期望值：todos_table=1 · rls_enabled=true · todo_policies=1
+--           avatar_bucket=1 · avatar_policies=4 · anon_can_read=false
+--   任何一项不对就说明脚本没跑完（常见：只选中了前面一部分就点 Run）
+-- ============================================================================
+select
+  (select count(*) from information_schema.tables
+     where table_schema = 'public' and table_name = 'todos') as todos_table,
+  (select relrowsecurity from pg_class
+     where oid = 'public.todos'::regclass) as rls_enabled,
+  (select count(*) from pg_policies
+     where schemaname = 'public' and tablename = 'todos') as todo_policies,
+  (select count(*) from storage.buckets where id = 'avatars') as avatar_bucket,
+  (select count(*) from pg_policies
+     where schemaname = 'storage' and tablename = 'objects'
+       and policyname like 'avatars:%') as avatar_policies,
+  -- 未登录角色应当连表权限都没有（revoke 生效）
+  has_table_privilege('anon', 'public.todos', 'select') as anon_can_read;
+
