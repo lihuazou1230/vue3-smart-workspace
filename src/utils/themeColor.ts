@@ -1,10 +1,15 @@
 /** 主题色工具：预设色板、hex ↔ rgb、提亮/压暗（用于运行时生成 Element Plus 变量） */
 
-export type ThemeColorName = 'indigo' | 'emerald' | 'rose' | 'amber' | 'sky' | 'violet'
+export type ThemeColorName = 'emerald' | 'lavender' | 'indigo' | 'rose' | 'amber' | 'sky' | 'violet'
 
+/**
+ * 预设色板。默认 **emerald**（Finexy 风格的克制绿色强调，语义契合"赚钱/完成"的正向指标）；
+ * **lavender** 为淡蓝紫备选色调，设置页可一键切换。
+ */
 export const THEME_COLOR_PRESETS: Record<ThemeColorName, string> = {
-  indigo: '#6366f1',
   emerald: '#10b981',
+  lavender: '#7c8cf8',
+  indigo: '#6366f1',
   rose: '#f43f5e',
   amber: '#f59e0b',
   sky: '#0ea5e9',

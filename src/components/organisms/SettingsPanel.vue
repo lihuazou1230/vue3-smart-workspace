@@ -51,7 +51,7 @@ const activeColor = computed(() => (store.prefs.customColor ? null : store.prefs
           class="rounded-lg px-3 py-1.5 text-sm transition-colors"
           :class="
             store.prefs.mode === m.key
-              ? 'bg-indigo-600 text-white'
+              ? 'bg-[var(--el-color-primary)] text-white'
               : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'
           "
           @click="store.setMode(m.key)"
@@ -99,7 +99,7 @@ const activeColor = computed(() => (store.prefs.customColor ? null : store.prefs
           class="rounded-lg px-3 py-1.5 text-sm transition-colors"
           :class="
             store.prefs.radius === r.key
-              ? 'bg-indigo-600 text-white'
+              ? 'bg-[var(--el-color-primary)] text-white'
               : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'
           "
           @click="store.setRadius(r.key)"
@@ -120,7 +120,7 @@ const activeColor = computed(() => (store.prefs.customColor ? null : store.prefs
           class="rounded-lg px-3 py-1.5 text-sm transition-colors"
           :class="
             store.prefs.density === d.key
-              ? 'bg-indigo-600 text-white'
+              ? 'bg-[var(--el-color-primary)] text-white'
               : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'
           "
           @click="store.setDensity(d.key)"

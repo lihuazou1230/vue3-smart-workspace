@@ -14,10 +14,10 @@ describe('themeStore', () => {
     setActivePinia(createPinia())
   })
 
-  it('默认偏好：跟随系统 + indigo + 默认密度/圆角', () => {
+  it('默认偏好：跟随系统 + emerald + 默认密度/圆角', () => {
     const store = useThemeStore()
     expect(store.prefs.mode).toBe('system')
-    expect(store.prefs.colorName).toBe('indigo')
+    expect(store.prefs.colorName).toBe('emerald')
     expect(store.prefs.customColor).toBeNull()
     expect(store.prefs.density).toBe('default')
     expect(store.prefs.radius).toBe('medium')
@@ -25,14 +25,14 @@ describe('themeStore', () => {
 
   it('主色默认取预设色，自定义色优先', () => {
     const store = useThemeStore()
-    expect(store.primaryColor).toBe('#6366f1')
+    expect(store.primaryColor).toBe('#10b981')
     store.setCustomColor('#ff0000')
     expect(store.primaryColor).toBe('#ff0000')
     // 选择预设色会清除自定义色
-    store.setColorName('emerald')
-    expect(store.prefs.colorName).toBe('emerald')
+    store.setColorName('lavender')
+    expect(store.prefs.colorName).toBe('lavender')
     expect(store.prefs.customColor).toBeNull()
-    expect(store.primaryColor).toBe('#10b981')
+    expect(store.primaryColor).toBe('#7c8cf8')
   })
 
   it('isDark 依据 mode 与 systemDark', () => {
@@ -62,9 +62,11 @@ describe('themeStore', () => {
   it('radiusPx 圆角映射', () => {
     const store = useThemeStore()
     store.setRadius('small')
-    expect(store.radiusPx).toBe(4)
-    store.setRadius('large')
+    expect(store.radiusPx).toBe(8)
+    store.setRadius('medium')
     expect(store.radiusPx).toBe(12)
+    store.setRadius('large')
+    expect(store.radiusPx).toBe(16)
   })
 
   it('偏好持久化到 localStorage，重置恢复默认', async () => {

@@ -1,7 +1,10 @@
 /* Element Plus 主题变量覆盖：主色/圆角与 Tailwind 联动 */
-/* 第一阶段先定义基准变量，外观自定义面板（第四阶段）会运行时改写这些变量 */
+/* 这里是「静态基准值」；外观自定义面板（第四阶段）会在运行时用 themeStore 的值改写这些变量 */
 :root {
-  --el-color-primary: #6366f1;
+  /* 视觉规范默认强调色 emerald */
+  --el-color-primary: #10b981;
+  /* 圆角调大，与 20~24px 的卡片圆角协调 */
+  --el-border-radius-base: 12px;
 }
 
 html.dark {

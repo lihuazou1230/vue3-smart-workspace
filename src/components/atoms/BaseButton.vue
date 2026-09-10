@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * 原子组件：基础按钮（纯展示，发射 click）
- * 样式走 Tailwind；variant 映射语义色，配合 CSS 变量主题（后续阶段接入主题色）
+ * 样式走 Tailwind；primary 用 `--el-color-primary` 系列 CSS 变量，
+ * 因此主题色（emerald/lavender/自定义取色）一改，全站按钮立即跟随
  */
 
 const props = withDefaults(
@@ -31,7 +32,7 @@ const emit = defineEmits<{
 
 const variantClass: Record<NonNullable<typeof props.variant>, string> = {
   primary:
-    'bg-indigo-600 text-white hover:bg-indigo-500 active:bg-indigo-700 disabled:bg-indigo-300',
+    'bg-[var(--el-color-primary)] text-white hover:bg-[var(--el-color-primary-dark-2)] active:bg-[var(--el-color-primary-dark-2)] disabled:bg-[var(--el-color-primary-light-5)]',
   secondary:
     'bg-slate-200 text-slate-700 hover:bg-slate-300 active:bg-slate-400 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600',
   danger: 'bg-rose-600 text-white hover:bg-rose-500 active:bg-rose-700 disabled:bg-rose-300',
@@ -54,7 +55,7 @@ function onClick(ev: MouseEvent) {
   <button
     :type="nativeType"
     :disabled="disabled"
-    class="inline-flex select-none items-center justify-center gap-1 font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+    class="inline-flex select-none items-center justify-center gap-1 font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--el-color-primary-light-5)] focus-visible:ring-offset-2 disabled:cursor-not-allowed"
     :class="[variantClass[variant], sizeClass[size], block ? 'w-full' : '']"
     @click="onClick"
   >

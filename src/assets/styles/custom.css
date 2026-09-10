@@ -1,9 +1,47 @@
-/* 自定义纯 CSS3 效果：毛玻璃、滚动条、过渡动画（后续阶段逐步完善） */
+/* 自定义纯 CSS3 效果：卡片、数字滚动（odometer）、滚动条 */
+/* 视觉规范：浅灰底 + 白底大圆角卡片，几乎无阴影，靠色差分层 */
 
-/* 毛玻璃卡片（圆角跟随主题：--app-radius，默认 1rem） */
-.glass {
-  @apply border border-white/40 bg-white/60 backdrop-blur-md dark:border-slate-700/40 dark:bg-slate-800/50;
-  border-radius: var(--app-radius, 1rem);
+/* 卡片（圆角跟随主题：--app-radius + 8px，默认 12 + 8 = 20px，落在规范要求的 20~24px 区间） */
+.card {
+  @apply border border-slate-200/70 bg-white dark:border-slate-700/60 dark:bg-slate-900;
+  border-radius: calc(var(--app-radius, 12px) + 8px);
+}
+
+/* 深色强调卡（赚钱秒表 C 位）：深绿渐变 + 白色大数字，暗色模式下保持一致 */
+.card-accent {
+  background-image: linear-gradient(135deg, #059669 0%, #047857 55%, #065f46 100%);
+  border-radius: calc(var(--app-radius, 12px) + 8px);
+  @apply border border-emerald-700/40;
+}
+
+/* ---- 数字滚动（odometer）：每位一个窗口，内部 0-9 纵向一列 ---- */
+.digit-window {
+  display: inline-block;
+  height: 1em;
+  overflow: hidden;
+  vertical-align: baseline;
+}
+
+.digit-strip {
+  display: block;
+  /* 每步正好一行高：translateY(-n × 1em) 就把第 n 个数字露在窗口里 */
+  line-height: 1;
+  transition: transform 0.3s ease-out;
+  will-change: transform;
+}
+
+/* 等宽防抖：数字位宽度一致，避免 1 与 0 宽度不同导致整行左右抖动 */
+.digit-window,
+.digit-strip {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* 降级：用户偏好减少动效时，数字直接切换、不播滚动动画 */
+@media (prefers-reduced-motion: reduce) {
+  .digit-strip {
+    transition: none;
+  }
 }
 
 /* 细滚动条 */

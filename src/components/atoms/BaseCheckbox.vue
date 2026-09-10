@@ -35,7 +35,7 @@ function onChange(ev: Event) {
       v-model="model"
       type="checkbox"
       :disabled="disabled"
-      class="h-4 w-4 rounded border-slate-300 text-indigo-600 accent-indigo-600 focus:ring-indigo-500"
+      class="h-4 w-4 rounded border-slate-300 text-[var(--el-color-primary)] accent-[var(--el-color-primary)] focus:ring-[var(--el-color-primary-light-5)]"
       @change="onChange"
     />
     <span v-if="label" class="text-sm text-slate-700 dark:text-slate-300">{{ label }}</span>

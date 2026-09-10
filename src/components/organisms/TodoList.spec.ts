@@ -122,12 +122,13 @@ describe('TodoList', () => {
     const btn = (label: string) => wrapper.findAll('button').find((b) => b.text() === label)
     await btn('高')!.trigger('click')
     await nextTick()
-    expect(btn('高')!.classes()).toContain('bg-indigo-600')
+    // 选中态走主题色变量（primary）
+    expect(btn('高')!.classes()).toContain('bg-[var(--el-color-primary)]')
 
     // 多选：再点低，两个都选中（grep 全部任务仍显示两类）
     await btn('低')!.trigger('click')
     await nextTick()
-    expect(btn('低')!.classes()).toContain('bg-indigo-600')
+    expect(btn('低')!.classes()).toContain('bg-[var(--el-color-primary)]')
 
     const liText = wrapper
       .findAll('li')

@@ -28,7 +28,8 @@ export interface ThemePrefs {
 
 const DEFAULT_THEME: ThemePrefs = {
   mode: 'system',
-  colorName: 'indigo',
+  // 视觉规范默认 emerald（可切 lavender 等预设，或自定义取色）
+  colorName: 'emerald',
   customColor: null,
   density: 'default',
   radius: 'medium',
@@ -73,16 +74,16 @@ export const useThemeStore = defineStore('theme', () => {
     }
   })
 
-  /** 圆角 -> px */
+  /** 圆角 -> px（视觉规范：卡片吃 +8px，得到 16/20/24px 的大圆角卡片） */
   const radiusPx = computed<number>(() => {
     switch (prefs.value.radius) {
       case 'small':
-        return 4
+        return 8
       case 'large':
-        return 12
+        return 16
       case 'medium':
       default:
-        return 8
+        return 12
     }
   })
 

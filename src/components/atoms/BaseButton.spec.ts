@@ -4,10 +4,11 @@ import { mount } from '@vue/test-utils'
 import BaseButton from './BaseButton.vue'
 
 describe('BaseButton', () => {
-  it('默认渲染 primary 按钮并发射 click', async () => {
+  it('默认渲染 primary 按钮（跟随主题色 CSS 变量）并发射 click', async () => {
     const wrapper = mount(BaseButton, { slots: { default: '保存' } })
     expect(wrapper.text()).toContain('保存')
-    expect(wrapper.classes()).toContain('bg-indigo-600')
+    // primary 用主题色变量，换主题色即时生效（不再硬编码颜色）
+    expect(wrapper.classes()).toContain('bg-[var(--el-color-primary)]')
 
     await wrapper.trigger('click')
     expect(wrapper.emitted('click')).toHaveLength(1)
