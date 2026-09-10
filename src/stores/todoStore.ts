@@ -1,10 +1,22 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { defineStore } from 'pinia'
 
+import { deleteRemoteTodos, fetchRemoteTodos, pushRemoteTodos } from '@/api/todoRemote'
+import { describeAuthError } from '@/api/auth'
 import { useLocalStorage } from '@/composables/useLocalStorage'
 import { filterTodos, sortTodos } from '@/composables/useTodoFilter'
 import { todayKey } from '@/utils/dateFormatter'
+import {
+  decideLocalCache,
+  diffTodos,
+  enqueueOperations,
+  isOnline,
+  mergeTodos,
+  migrationKey,
+  snapshotTodos,
+} from '@/utils/todoSync'
+import type { CacheOwner, SyncOperation, SyncState } from '@/utils/todoSync'
 import type {
   PendingDelete,
   PrioritySelection,
@@ -17,6 +29,12 @@ import type {
 import { UNDO_DELETE_TIMEOUT } from '@/types/todo'
 
 export const TODO_STORAGE_KEY = 'smart-workspace:todos'
+
+/** 离线操作队列（持久化：刷新页面不丢，等待补发） */
+export const SYNC_QUEUE_KEY = 'smart-workspace:sync-queue'
+
+/** 本地任务缓存的主人（某个 userId / 'guest' / null），用于防止跨账号串数据 */
+export const SYNC_OWNER_KEY = 'smart-workspace:todos-owner'
 
 function createId(): string {
   const c = globalThis.crypto
@@ -275,6 +293,233 @@ export const useTodoStore = defineStore('todo', () => {
     manualOrder.value = true
   }
 
+  // ---- 云同步（第五阶段） ----
+  /**
+   * 同步模型：**云端为准 + 本地缓存 + 离线队列**
+   * - 未登录（local 模式）：行为与以前完全一致，只写 localStorage
+   * - 已登录：激活时拉取云端并覆盖本地（首次登录则把本地旧数据一次性迁移上去）
+   * - 之后每次改动用「指纹差异」算出要推送的任务，写进队列后异步补发；
+   *   断网时队列持久化在 localStorage，恢复网络或下次进入时自动补发
+   */
+  const syncState = ref<SyncState>('local')
+  /** 当前同步所属账号（null = 未登录 / 未激活） */
+  const syncUserId = ref<string | null>(null)
+  /** 同步提示（面向用户，如「离线模式」「已迁移 N 条」） */
+  const syncMessage = ref('')
+  /** 最近一次同步成功时间（ISO） */
+  const lastSyncedAt = ref<string | null>(null)
+  /** 本地缓存主人标记 */
+  const syncOwner = useLocalStorage<CacheOwner>(SYNC_OWNER_KEY, null)
+  /** 待补发的操作队列（持久化，刷新不丢） */
+  const syncQueue = useLocalStorage<SyncOperation[]>(SYNC_QUEUE_KEY, [])
+
+  /** 上次已同步快照（id → 指纹），差异推送的基准 */
+  let syncedSnapshot = new Map<string, string>()
+  /** 是否正在补发（避免并发 flush 重复推送） */
+  let flushing = false
+  /**
+   * 是否正在激活云同步。
+   * 激活期间用户可能仍在操作，这些改动由激活结束后的「补差」统一处理，
+   * 所以 watcher 要先让路——否则「拉取云端」这一步的 await 会让激活前积压的
+   * watcher 回调在错误的时间点跑（基准快照还是空的），把整份列表误判成新改动重复推送。
+   */
+  let activating = false
+
+  /** 某个账号是否已完成旧数据一次性迁移 */
+  function isMigrated(userId: string): boolean {
+    try {
+      return localStorage.getItem(migrationKey(userId)) === 'done'
+    } catch {
+      return false
+    }
+  }
+
+  function markMigrated(userId: string) {
+    try {
+      localStorage.setItem(migrationKey(userId), 'done')
+    } catch {
+      // 隐私模式等场景：忽略，下次激活时会再走一次迁移（迁移本身是幂等 upsert）
+    }
+  }
+
+  /** 把队列里的操作补发到云端（串行，保证顺序） */
+  async function flushSync(): Promise<boolean> {
+    const userId = syncUserId.value
+    if (!userId || flushing) return false
+
+    if (!isOnline()) {
+      syncState.value = 'offline'
+      syncMessage.value = '当前处于离线模式：改动已保存在本地，恢复网络后自动同步'
+      return false
+    }
+
+    if (syncQueue.value.length === 0) {
+      if (syncState.value === 'offline') syncState.value = 'synced'
+      return true
+    }
+
+    flushing = true
+    syncState.value = 'syncing'
+    try {
+      // 逐条串行：后一条依赖前一条的写入结果（删除与新增可能针对同一条）
+      while (syncQueue.value.length > 0) {
+        const op = syncQueue.value[0]
+        if (op.type === 'delete') {
+          await deleteRemoteTodos([op.todoId])
+        } else {
+          const position = todos.value.findIndex((t) => t.id === op.todoId)
+          // 已被删除（队列里可能还没轮到这条 delete）则跳过，避免推送幽灵数据
+          if (position >= 0) {
+            await pushRemoteTodos(userId, [{ todo: todos.value[position], position }])
+          }
+        }
+        syncQueue.value = syncQueue.value.slice(1)
+      }
+      syncState.value = 'synced'
+      syncMessage.value = ''
+      lastSyncedAt.value = new Date().toISOString()
+      return true
+    } catch (error) {
+      // 失败：保留队列，降级为离线（本地照常可写），下次自动重试
+      syncState.value = 'offline'
+      syncMessage.value = describeAuthError(error)
+      return false
+    } finally {
+      flushing = false
+    }
+  }
+
+  /** 手动「立即同步」（设置页按钮 / 网络恢复时调用） */
+  async function syncNow(): Promise<boolean> {
+    return flushSync()
+  }
+
+  /**
+   * 激活云同步（登录后调用）。
+   * @returns 是否成功（失败时进入离线降级，本地照常可用）
+   */
+  async function activateCloud(userId: string): Promise<boolean> {
+    if (!userId) return false
+    if (syncUserId.value === userId) return flushSync()
+
+    activating = true
+    try {
+      syncState.value = 'syncing'
+      syncMessage.value = ''
+
+      // 数据安全：本地缓存若属于另一个账号，必须先清掉，否则会把 A 的任务推进 B 的账号
+      const decision = decideLocalCache(syncOwner.value, userId)
+      if (decision === 'wipe-foreign') {
+        todos.value = []
+        syncQueue.value = []
+      }
+
+      syncUserId.value = userId
+      syncOwner.value = userId
+
+      const remote = await fetchRemoteTodos(userId)
+      let next = remote
+
+      // 一次性迁移：本地有游客/上一版本数据且该账号还没迁移过 → 合并后整体写入云端
+      if (decision === 'keep-local' && todos.value.length > 0 && !isMigrated(userId)) {
+        const localCount = todos.value.length
+        next = mergeTodos(todos.value, remote)
+        await pushRemoteTodos(
+          userId,
+          next.map((todo, position) => ({ todo, position })),
+        )
+        markMigrated(userId)
+        syncMessage.value = `已把本地 ${localCount} 条任务迁移到云端`
+      }
+
+      // 先更新快照再赋值：避免这次「云端覆盖本地」被差异逻辑误判为用户改动而重复推送
+      syncedSnapshot = snapshotTodos(next)
+      todos.value = next
+
+      // 补差：激活期间（拉取云端的 await 中）用户可能又改了任务
+      const diff = diffTodos(syncedSnapshot, todos.value)
+      if (diff.upserts.length > 0 || diff.deletes.length > 0) {
+        syncedSnapshot = snapshotTodos(todos.value)
+        syncQueue.value = enqueueOperations(syncQueue.value, [
+          ...diff.upserts.map((entry) => ({ todoId: entry.todo.id, type: 'upsert' as const })),
+          ...diff.deletes.map((id) => ({ todoId: id, type: 'delete' as const })),
+        ])
+      }
+
+      syncState.value = 'synced'
+      lastSyncedAt.value = new Date().toISOString()
+
+      // 离线期间攒下的操作补发
+      await flushSync()
+      return true
+    } catch (error) {
+      syncState.value = 'offline'
+      syncMessage.value = describeAuthError(error)
+      return false
+    } finally {
+      activating = false
+    }
+  }
+
+  /**
+   * 退出登录：把待补发操作尽量送出去，然后清空本地缓存。
+   * 清缓存是有意为之——任务属于账号，不能留在浏览器里给下一个登录者看见。
+   */
+  async function deactivateCloud(): Promise<void> {
+    if (syncUserId.value) await flushSync()
+
+    syncUserId.value = null
+    syncOwner.value = null
+    syncedSnapshot = new Map()
+    todos.value = []
+    syncQueue.value = []
+    syncState.value = 'local'
+    syncMessage.value = ''
+    lastSyncedAt.value = null
+  }
+
+  /** 绑定网络状态：恢复联网自动补发，断网立刻提示（由 App.vue 调用一次，返回解绑函数） */
+  function bindConnectivity(): () => void {
+    if (typeof window === 'undefined') return () => {}
+
+    const handleOnline = () => {
+      if (syncUserId.value) void flushSync()
+    }
+    const handleOffline = () => {
+      if (syncUserId.value) {
+        syncState.value = 'offline'
+        syncMessage.value = '当前处于离线模式：改动已保存在本地，恢复网络后自动同步'
+      }
+    }
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }
+
+  // 任务列表的任何变化（增删改、子任务、置顶、拖拽排序）都走这一处差异计算，
+  // 好处：新增业务动作时不需要记得「顺手写一句同步代码」，不会漏推。
+  watch(
+    todos,
+    (next) => {
+      if (!syncUserId.value || activating) return
+
+      const diff = diffTodos(syncedSnapshot, next)
+      if (diff.upserts.length === 0 && diff.deletes.length === 0) return
+
+      syncedSnapshot = snapshotTodos(next)
+      syncQueue.value = enqueueOperations(syncQueue.value, [
+        ...diff.upserts.map((entry) => ({ todoId: entry.todo.id, type: 'upsert' as const })),
+        ...diff.deletes.map((id) => ({ todoId: id, type: 'delete' as const })),
+      ])
+      void flushSync()
+    },
+    { deep: true },
+  )
+
   return {
     // 状态
     todos,
@@ -317,5 +562,18 @@ export const useTodoStore = defineStore('todo', () => {
     bulkRemove,
     bulkSetPriority,
     moveTodo,
+    // 云同步
+    syncState,
+    syncUserId,
+    syncMessage,
+    lastSyncedAt,
+    syncOwner,
+    syncQueue,
+    isMigrated,
+    activateCloud,
+    deactivateCloud,
+    flushSync,
+    syncNow,
+    bindConnectivity,
   }
 })
