@@ -31,7 +31,7 @@ const quote = computed(() => quoteOfDay(todayKey(now.value)))
 </script>
 
 <template>
-  <section class="glass rounded-2xl p-4 shadow-sm" aria-label="每日格言">
+  <section class="card p-5" aria-label="每日格言">
     <p class="text-base font-semibold text-slate-800 dark:text-slate-100">
       {{ greeting }}，今天是 {{ dateLabel }}
     </p>

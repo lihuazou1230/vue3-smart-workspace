@@ -40,15 +40,16 @@ const monthMarks = computed(() => {
 })
 
 function cellClass(level: number): string {
+  // 色阶走 emerald（与默认强调色一致，单一绿色系保持克制）
   switch (level) {
     case 1:
-      return 'bg-indigo-200 dark:bg-indigo-900/70'
+      return 'bg-emerald-200 dark:bg-emerald-900/70'
     case 2:
-      return 'bg-indigo-300 dark:bg-indigo-700'
+      return 'bg-emerald-300 dark:bg-emerald-700'
     case 3:
-      return 'bg-indigo-500 dark:bg-indigo-500'
+      return 'bg-emerald-500 dark:bg-emerald-500'
     case 4:
-      return 'bg-indigo-700 dark:bg-indigo-300'
+      return 'bg-emerald-700 dark:bg-emerald-300'
     case 0:
     default:
       return 'bg-slate-200 dark:bg-slate-700/50'
@@ -59,7 +60,7 @@ const legendLevels = [0, 1, 2, 3, 4]
 </script>
 
 <template>
-  <section class="glass rounded-2xl p-4 shadow-sm" aria-label="生产力热力图">
+  <section class="card p-5" aria-label="生产力热力图">
     <header class="mb-3 flex items-center justify-between">
       <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200">🔥 生产力热力图</h2>
       <span class="text-xs text-slate-500 dark:text-slate-400">近 90 天每日完成数</span>

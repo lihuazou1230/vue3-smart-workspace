@@ -3,7 +3,7 @@
  * 根组件：第四阶段（体验优化与交付）
  * - 挂载 el-config-provider（密度）+ 运行时主题 CSS 变量（themeVars）
  * - 明暗模式（useTheme）、外观设置抽屉、移动端底部导航
- * - 每日格言、赚钱秒表、今日聚焦、子任务、批量操作等阶段4能力
+ * - 视觉规范：浅灰底 + 白底大圆角卡片 + 三列 bento 布局，赚钱秒表为深绿 C 位卡
  */
 
 import { computed, ref } from 'vue'
@@ -13,6 +13,7 @@ import { useTheme } from '@/composables/useTheme'
 import { useTodoStore } from '@/stores/todoStore'
 import DailyGreeting from '@/components/organisms/DailyGreeting.vue'
 import EarningsClock from '@/components/organisms/EarningsClock.vue'
+import TodayProgressCard from '@/components/organisms/TodayProgressCard.vue'
 import TodoForm from '@/components/organisms/TodoForm.vue'
 import TodoList from '@/components/organisms/TodoList.vue'
 import MyDay from '@/components/organisms/MyDay.vue'
@@ -51,7 +52,7 @@ function handleCreate(payload: Parameters<typeof store.addTodo>[0]) {
 <template>
   <el-config-provider :size="themeStore.elSize">
     <div :style="themeVars" class="min-h-screen">
-      <main class="mx-auto w-full max-w-3xl px-4 py-8 pb-24 sm:px-6 md:pb-8">
+      <main class="mx-auto w-full max-w-6xl px-4 py-6 pb-24 sm:px-6 md:pb-8">
         <header class="mb-6 flex items-start justify-between gap-3">
           <div>
             <h1 class="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
@@ -65,7 +66,7 @@ function handleCreate(payload: Parameters<typeof store.addTodo>[0]) {
             <ThemeToggle />
             <button
               type="button"
-              class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white/60 text-slate-600 transition-colors hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:text-indigo-400"
+              class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-[var(--el-color-primary)] hover:text-[var(--el-color-primary)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
               aria-label="打开外观设置"
               @click="settingsOpen = true"
             >
@@ -86,43 +87,43 @@ function handleCreate(payload: Parameters<typeof store.addTodo>[0]) {
           </div>
         </header>
 
-        <!-- 概览计数 -->
-        <section class="mb-5 flex flex-wrap gap-2" aria-label="任务统计">
-          <BaseBadge v-for="item in summary" :key="item.label" :tone="item.tone" size="sm">
-            {{ item.label }} {{ item.value }}
-          </BaseBadge>
-        </section>
-
-        <!-- 每日格言（时段问候 + 每日一句） -->
-        <div class="mb-4">
-          <DailyGreeting />
-        </div>
-
-        <!-- 赚钱秒表（实时跳动「今日已赚」） -->
-        <div class="mb-4">
-          <EarningsClock />
-        </div>
-
-        <!-- 今日聚焦 -->
-        <div class="mb-6">
-          <MyDay />
-        </div>
-
-        <!-- 新建任务 -->
-        <section class="glass mb-6 rounded-2xl p-4 shadow-sm">
-          <TodoForm @create="handleCreate" />
-        </section>
-
-        <!-- 任务列表 -->
-        <TodoList />
-
-        <!-- 第三阶段：可视化与天气 -->
-        <section class="mt-8 space-y-4">
-          <h2 class="sr-only">数据可视化与天气</h2>
-          <StatisticsCard />
-          <ProductivityHeatmap />
+        <!-- 三列 bento：赚钱秒表深绿卡占 C 位并跨 2 行 -->
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <EarningsClock class="lg:row-span-2" />
+          <TodayProgressCard />
           <WeatherWidget />
-        </section>
+
+          <!-- 第二行右侧两列：每日格言 -->
+          <DailyGreeting class="lg:col-span-2" />
+
+          <!-- 第三行：今日聚焦（占 2 列）+ 概览徽章 -->
+          <MyDay class="lg:col-span-2" />
+          <section class="card flex flex-col gap-3 p-5" aria-label="任务统计">
+            <h2 class="text-sm font-semibold text-slate-500 dark:text-slate-400">任务概览</h2>
+            <div class="flex flex-wrap gap-2">
+              <BaseBadge v-for="item in summary" :key="item.label" :tone="item.tone" size="sm">
+                {{ item.label }} {{ item.value }}
+              </BaseBadge>
+            </div>
+            <p class="mt-auto text-xs text-slate-400 dark:text-slate-500">
+              全部任务按优先级与截止日期排序，可在下方任务区筛选、搜索与批量操作。
+            </p>
+          </section>
+
+          <!-- 任务区：整行 -->
+          <section class="card p-5 lg:col-span-3">
+            <TodoForm @create="handleCreate" />
+          </section>
+          <div class="lg:col-span-3">
+            <TodoList />
+          </div>
+
+          <!-- 可视化：整行两列 -->
+          <div class="grid gap-4 lg:col-span-3 lg:grid-cols-2">
+            <StatisticsCard />
+            <ProductivityHeatmap />
+          </div>
+        </div>
       </main>
 
       <!-- 外观设置抽屉 -->

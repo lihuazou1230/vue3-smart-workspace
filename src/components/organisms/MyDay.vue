@@ -32,7 +32,7 @@ function onRemoveSubtask(todoId: string, subtaskId: string) {
 </script>
 
 <template>
-  <section class="glass rounded-2xl p-4 shadow-sm" aria-label="今日聚焦">
+  <section class="card p-5" aria-label="今日聚焦">
     <header class="mb-3 flex items-center justify-between">
       <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200">🎯 今日聚焦</h2>
       <span class="text-xs text-slate-500 dark:text-slate-400"

@@ -124,3 +124,68 @@ export function useTaskStatistics() {
   const heatmap = computed(() => buildHeatmapWeeks(statistics.value.daily))
   return { statistics, heatmap }
 }
+
+// ---- 今日完成度（仪表板「完成度环形图」卡） ----
+
+/** 今日完成度快照 */
+export interface TodayProgress {
+  /** 今日完成的任务数 */
+  completedToday: number
+  /** 今日到期但尚未完成的数量 */
+  dueTodayActive: number
+  /** 今日完成度 0~100：今日完成 ÷（今日完成 + 今日到期未完成） */
+  rate: number
+  /** 昨日完成数（用于涨跌对比） */
+  completedYesterday: number
+  /** 今日完成数相对昨日的涨跌百分比 */
+  deltaPercent: number
+  /** 今天是否有"该做的事"（没有到期任务且今天没完成任何事时为 false，UI 换文案） */
+  hasTarget: boolean
+}
+
+/** 某天完成的任务数（按 completedAt 归属到当地日期） */
+function completedOn(todos: Todo[], dateKey: string): number {
+  return todos.filter(
+    (t) =>
+      t.status === 'completed' && t.completedAt && toDateKey(new Date(t.completedAt)) === dateKey,
+  ).length
+}
+
+/** 完成数涨跌百分比：昨日为 0 时，今日有产出记 +100%，都为 0 记 0（避免除零与 Infinity） */
+function completionTrend(today: number, yesterday: number): number {
+  if (yesterday === 0) return today > 0 ? 100 : 0
+  return ((today - yesterday) / yesterday) * 100
+}
+
+/**
+ * 今日完成度：`今日完成 ÷（今日完成 + 今日到期未完成）`。
+ * 分母刻意取"今天台面上的事"（做完的 + 该做没做的），既不重复计数，也不受历史任务量影响；
+ * 今日没有到期任务且没完成任何事时 hasTarget 为 false，由 UI 换成"今日暂无到期任务"文案。
+ */
+export function computeTodayProgress(todos: Todo[], now: Date = new Date()): TodayProgress {
+  const today = todayKey(now)
+  const yesterday = addDays(today, -1)
+
+  const completedToday = completedOn(todos, today)
+  const completedYesterday = completedOn(todos, yesterday)
+  const dueTodayActive = todos.filter((t) => t.status === 'active' && t.dueDate === today).length
+
+  const denominator = completedToday + dueTodayActive
+  const rate = denominator === 0 ? 0 : Math.round((completedToday / denominator) * 100)
+
+  return {
+    completedToday,
+    dueTodayActive,
+    rate,
+    completedYesterday,
+    deltaPercent: completionTrend(completedToday, completedYesterday),
+    hasTarget: denominator > 0,
+  }
+}
+
+/** 连接 todoStore 的今日完成度（随任务变化自动更新） */
+export function useTodayProgress() {
+  const store = useTodoStore()
+  const progress = computed<TodayProgress>(() => computeTodayProgress(store.visibleTodos))
+  return { progress }
+}

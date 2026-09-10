@@ -38,7 +38,7 @@ function formatTime(ms: number): string {
 </script>
 
 <template>
-  <section class="glass rounded-2xl p-4 shadow-sm" aria-label="当前位置天气">
+  <section class="card p-5" aria-label="当前位置天气">
     <header class="mb-3 flex items-center justify-between gap-2">
       <h2
         class="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-slate-200"

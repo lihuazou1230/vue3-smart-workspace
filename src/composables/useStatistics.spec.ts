@@ -5,6 +5,7 @@ import {
   aggregateDaily,
   buildHeatmapWeeks,
   computeStatistics,
+  computeTodayProgress,
   heatmapLevel,
   lastNDays,
 } from './useStatistics'
@@ -140,5 +141,70 @@ describe('buildHeatmapWeeks', () => {
     expect(weeks[0][0]).toBeNull()
     // 首个非空格必是真实日期
     expect(weeks[0].find((c) => c !== null)).toMatchObject({ date: '2026-09-08' })
+  })
+})
+
+describe('computeTodayProgress（今日完成度）', () => {
+  /** NOW = 2026-09-08 10:00（周二）；昨天为 2026-09-07 */
+  const at = (day: number, hours = 10, minutes = 0) =>
+    new Date(2026, 8, day, hours, minutes, 0).toISOString()
+
+  function completed(id: string, completedAt: string, dueDate?: string): Todo {
+    return todo({ id, status: 'completed', completedAt, dueDate })
+  }
+
+  it('完成度 = 今日完成 ÷（今日完成 + 今日到期未完成）', () => {
+    const todos = [
+      completed('a', at(8, 9)),
+      completed('b', at(8, 9, 30)),
+      todo({ id: 'c', dueDate: '2026-09-08' }), // 今日到期未完成
+      todo({ id: 'd', dueDate: '2026-09-09' }), // 明天到期，不计入
+    ]
+    const progress = computeTodayProgress(todos, NOW)
+    expect(progress.completedToday).toBe(2)
+    expect(progress.dueTodayActive).toBe(1)
+    expect(progress.rate).toBe(67) // 2/3
+    expect(progress.hasTarget).toBe(true)
+  })
+
+  it('分母为 0（今日无事）时完成度为 0 且 hasTarget 为 false', () => {
+    const progress = computeTodayProgress([todo({ id: 'a', dueDate: '2026-09-20' })], NOW)
+    expect(progress.rate).toBe(0)
+    expect(progress.completedToday).toBe(0)
+    expect(progress.hasTarget).toBe(false)
+  })
+
+  it('只统计今天的完成数，昨天/明天的完成不算', () => {
+    const todos = [completed('a', at(7, 23)), completed('b', at(9, 9)), completed('c', at(8, 9))]
+    const progress = computeTodayProgress(todos, NOW)
+    expect(progress.completedToday).toBe(1)
+    expect(progress.completedYesterday).toBe(1)
+  })
+
+  it('涨跌：与昨日完成数对比，昨日为 0 而今日有产出算 +100%', () => {
+    const onlyYesterday = computeTodayProgress([completed('a', at(7, 9))], NOW)
+    expect(onlyYesterday.deltaPercent).toBe(-100)
+
+    const onlyToday = computeTodayProgress([completed('a', at(8, 9))], NOW)
+    expect(onlyToday.deltaPercent).toBe(100)
+
+    const bothSame = computeTodayProgress([completed('a', at(7, 9)), completed('b', at(8, 9))], NOW)
+    expect(bothSame.deltaPercent).toBe(0)
+  })
+
+  it('涨跌：成倍增长时按比例计算', () => {
+    const todos = [
+      completed('y1', at(7, 9)),
+      completed('y2', at(7, 9)),
+      completed('t1', at(8, 9)),
+      completed('t2', at(8, 9)),
+      completed('t3', at(8, 9)),
+    ]
+    // 昨日 2 项、今日 3 项 => +50%
+    expect(computeTodayProgress(todos, NOW).deltaPercent).toBe(50)
+  })
+
+  it('今日无产出且昨日也无产出时涨跌为 0（持平）', () => {
+    expect(computeTodayProgress([], NOW).deltaPercent).toBe(0)
   })
 })
