@@ -8,6 +8,14 @@ import { defineConfig } from 'vitest/config'
 
 // https://vite.dev/config/
 export default defineConfig({
+  /**
+   * 部署子路径。
+   * 本地开发、Vercel、Netlify、Cloudflare Pages 都挂在域名根目录（`/`），保持默认即可；
+   * GitHub Pages 的项目站点挂在 `https://<user>.github.io/<repo>/` 上，
+   * 由部署工作流注入 `BASE_PATH=/<repo>/`——`import.meta.env.BASE_URL` 会同步变化，
+   * 而路由用的是 `createWebHistory(import.meta.env.BASE_URL)`，所以子路径下路由依然正确。
+   */
+  base: process.env.BASE_PATH ?? '/',
   plugins: [
     vue(),
     // Element Plus 按需自动导入：模板组件 + API（ElMessage 等）

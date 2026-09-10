@@ -1,0 +1,93 @@
+# 部署到 GitHub Pages
+#
+# 前置（在 GitHub 网页上做一次，之后就不用管了）：
+#   1. 仓库 Settings → Pages → Build and deployment → Source 选 **GitHub Actions**
+#   2. 仓库 Settings → Secrets and variables → Actions → New repository secret，加三条：
+#        VITE_AMAP_KEY / VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
+#      （不加密提交到仓库会泄露高德 Key，所以必须走 Secrets；三条都不加也能部署成功，
+#        只是应用会跑在「本地模式」：无登录/云同步，天气卡显示配置引导）
+#   3. Supabase → Authentication → URL Configuration 里加上部署后的地址与回跳：
+#        https://<用户名>.github.io/<仓库名>/**   （GitHub OAuth 与邮件链接都靠它）
+#
+# 站点地址：https://<用户名>.github.io/<仓库名>/
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # 也允许在 Actions 页面手动点一下重新部署
+  workflow_dispatch:
+
+# GitHub Pages 要求的最小权限集
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只跑一个部署；新的推送取消排队中的旧任务
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      # 测试不过就不发版：部署产物必须是绿的
+      - name: 运行测试
+        run: pnpm test
+
+      - name: 构建
+        env:
+          # 项目站点部署在 /<仓库名>/ 子路径下，必须告诉 Vite
+          BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_AMAP_KEY: ${{ secrets.VITE_AMAP_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          pnpm build
+          # SPA 回退：Pages 对未知路径返回 404.html，让它也是应用入口，
+          # 这样直接访问 /<repo>/todos 刷新不会白屏（路由会自己解析路径）
+          cp dist/index.html dist/404.html
+          # 关掉 Jekyll 处理，避免以 _ 开头的产物被丢弃
+          touch dist/.nojekyll
+
+      - name: 配置 Pages
+        uses: actions/configure-pages@v5
+        with:
+          # 若仓库尚未开启 Pages，就用当前 token 自动开启（免去手动去 Settings 里选来源）
+          enablement: true
+
+      - name: 上传产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 发布到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

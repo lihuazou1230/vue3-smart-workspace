@@ -352,15 +352,18 @@ create policy "todos: own rows only" on public.todos
 > **注册被手机验证挡住？** Vercel 对新账号强制手机验证，而 **+86 号码经常收不到验证码**（平台风控问题，与项目无关，官方没有跳过选项）。
 > 本项目是纯静态 SPA，**下面三个平台都不要手机号**，仓库里已经把配置都备好了，哪边顺利走哪边即可。
 
-| 平台                 | 登录方式             | 仓库内已备配置文件                                            | 构建设置                                 |
-| -------------------- | -------------------- | ------------------------------------------------------------- | ---------------------------------------- |
-| **Vercel**           | GitHub               | `vercel.json`                                                 | `pnpm build` → `dist`                    |
-| **Cloudflare Pages** | GitHub（不要手机号） | `public/_redirects`                                           | `pnpm build` → `dist`，`NODE_VERSION=22` |
-| **Netlify**          | GitHub（不要手机号） | `netlify.toml` + `public/_redirects`                          | 已写在 `netlify.toml`，导入即用          |
-| GitHub Pages         | 同一 GitHub 账号     | 需 Actions 工作流（构建时加 `--base=/vue3-smart-workspace/`） | 仅静态产物，无环境变量注入               |
+| 平台                 | 登录方式             | 仓库内已备配置文件                             | 构建设置                                 |
+| -------------------- | -------------------- | ---------------------------------------------- | ---------------------------------------- |
+| **Vercel**           | GitHub               | `vercel.json`                                  | `pnpm build` → `dist`                    |
+| **Cloudflare Pages** | GitHub（不要手机号） | `public/_redirects`                            | `pnpm build` → `dist`，`NODE_VERSION=22` |
+| **Netlify**          | GitHub（不要手机号） | `netlify.toml` + `public/_redirects`           | 已写在 `netlify.toml`，导入即用          |
+| **GitHub Pages**     | 就用现有 GitHub 账号 | `.github/workflows/deploy-pages.yml`（已备好） | 工作流里写死：测试 → `pnpm build` → 发布 |
 
-三个平台的行为一致：**SPA 回退**（刷新 `/todos`、`/stats` 不 404）+ **构建期注入 `VITE_*` 环境变量**。
+四个平台的行为一致：**SPA 回退**（刷新 `/todos`、`/stats` 不 404）+ **构建期注入 `VITE_*` 环境变量**。
 所以下面的环境变量表与自检清单一套通用。
+
+> **国内可访问性**：`*.vercel.app`、`*.pages.dev`、`*.netlify.app` 这几个默认域名在国内并不稳定；
+> `*.github.io` 一般可以直接打开。要给面试官看的话，GitHub Pages 最省心，或给上面任一平台绑自己的域名。
 
 ### 环境变量（必须，构建期注入）
 
@@ -413,11 +416,37 @@ Vercel 会自动挑满足条件的版本；不使用 `packageManager` 字段，V
 部署完拿到的是 `https://<项目名>.pages.dev` 或 `https://<项目名>.netlify.app`，
 **同样要回 Supabase 把这两个域名加进 Redirect URLs**（否则登录回跳会失败）。
 
+### 步骤（GitHub Pages）
+
+工作流已经写好在 `.github/workflows/deploy-pages.yml`（推送到 `main` 就自动跑，也可在 Actions 页面手动触发），
+你只需要在 GitHub 网页上做**三件一次性设置**：
+
+1. **开启 Pages 的 Actions 来源**：仓库 **Settings → Pages → Build and deployment → Source 选 `GitHub Actions`**
+   （工作流里带了 `enablement: true`，多数情况下会**自动开启**、无需手动设置；若首次运行报
+   "Get Pages site failed"，就回这里手动选一次 "GitHub Actions" 再重跑）
+2. **加三条 Secrets**：仓库 **Settings → Secrets and variables → Actions → New repository secret**
+   - `VITE_AMAP_KEY`、`VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`
+   - 必须走 Secrets（加密存储）：写进仓库文件会公开泄露高德 Key
+   - 三条都不加也能部署成功，只是应用跑在**本地模式**：无登录/云同步、天气卡显示配置引导
+3. **Supabase 加回跳域名**：Authentication → URL Configuration 的 Site URL 与 Redirect URLs 加上
+   `https://<用户名>.github.io/<仓库名>/**`（否则 GitHub 登录与邮件链接会跳回 localhost）
+
+站点地址形如 `https://lihuazou1230.github.io/vue3-smart-workspace/`。工作流里已处理两个 Pages 特有的坑：
+
+| 坑                                                 | 处理方式                                                                                                                     |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 项目站点部署在 `/<仓库名>/` 子路径，绝对路径会 404 | 构建时注入 `BASE_PATH=/<仓库名>/`（`vite.config.ts` 读它），路由用的 `createWebHistory(import.meta.env.BASE_URL)` 会自动跟随 |
+| Pages 对未知路径返回 404，刷新 `/todos` 会白屏     | 构建后 `cp dist/index.html dist/404.html`，让 404 页也是应用入口；另加 `.nojekyll` 防止 `_` 开头的产物被 Jekyll 丢掉         |
+
+> 本地想验一遍子路径构建：`$env:BASE_PATH='/vue3-smart-workspace/'; pnpm build; pnpm preview`，
+> 然后访问 `http://localhost:4173/vue3-smart-workspace/todos`——应为 200 且资源路径都带子路径前缀。
+
 ### 上线后的自检清单
 
 - [ ] 首页仪表板能出数字（秒表在计薪时间内会跳动、今日完成度环形图有渲染）
-- [ ] 刷新 `/todos`、`/stats`、`/settings` 这些子路由**不 404**（这条由 `vercel.json` 的 rewrite 保证）
-- [ ] 天气卡能显示当前位置（Vercel 是 HTTPS，浏览器才会给定位权限；`http://局域网 IP` 会直接被拒）
+- [ ] 刷新 `/todos`、`/stats`、`/settings` 这些子路由**不 404**（Vercel 靠 `vercel.json` 的 rewrite；
+      Cloudflare / Netlify 靠 `_redirects`；GitHub Pages 靠 `404.html`）
+- [ ] 天气卡能显示当前位置（必须 HTTPS，浏览器才给定位权限；`http://局域网 IP` 会直接被拒）
 - [ ] 未登录访问 `/todos` 会跳到 `/login`，登录后回到 `/todos`（配了 Supabase 才有登录环节）
 - [ ] 换一台设备／无痕窗口登录同一账号，任务数据一致
 - [ ] 头像上传后侧边栏与设置页都显示圆形头像
