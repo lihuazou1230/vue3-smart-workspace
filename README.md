@@ -14,9 +14,10 @@
 - 🖱️ **批量操作**：列表多选，批量完成/取消/删除/改优先级
 - ✨ **拖拽排序**：拖动任务行自定义顺序（手动排序后不再自动重排）
 - 💬 **每日格言**：按时段问候（早上好/下午好…）+ 每日一句（本地 JSON 按日期哈希取句，同一天不换）
-- 💰 **赚钱秒表**：主指标实时跳动「今日已赚 ¥xxx.xx」精准到分，次指标展示「本月已赚」，只在计薪时间内累计
-- 🎨 **外观自定义**：明暗模式（深色/浅色/跟随系统）、主题色（预设色板 + 自定义取色器）、圆角、密度，实时生效并持久化（Element Plus CSS 变量 + ElConfigProvider）
-- 📊 **数据可视化**：ECharts 优先级分布饼图 + 近 30 天完成趋势折线（按需引入）
+- 💰 **赚钱秒表**：主指标实时跳动「今日已赚 ¥xxx.xx」精准到分，**数字逐位上滑滚动**（odometer），次指标展示「本月已赚」+ 较上月同期涨跌，达标进度条，只在计薪时间内累计
+- ✅ **今日完成度**：环形图 + 大数字展示「今日完成 ÷（今日完成 + 今日待办）」，附较昨日涨跌徽章
+- 🎨 **外观自定义**：明暗模式（深色/浅色/跟随系统）、主题色（默认 emerald，预设色板含 lavender + 自定义取色器）、圆角、密度，实时生效并持久化（Element Plus CSS 变量 + ElConfigProvider）
+- 📊 **数据可视化**：ECharts 优先级分布环形图 + 近 30 天完成趋势**圆角柱状图**（按需引入，柱子颜色跟随主题色）
 - 🔥 **生产力热力图**：近 90 天每日完成数 GitHub 风格色阶图（纯 CSS Grid）
 - 📍 **自动定位**：进站自动显示**当前位置**的天气，位置文案为「区 · 城市 · 省份」（直辖市为「区 · 城市」）
 - ☀️ **天气卡片**：只展示当前位置天气（国内数据源 · 高德地图），emoji 天气图标、加载骨架屏、错误重试、10 分钟本地缓存、三级降级链路、未配置 Key 引导
@@ -36,19 +37,37 @@
 ```
 src/
 ├── api/              # 原生 fetch 请求层（httpClient / weather / weatherCache）
-├── assets/styles/    # Tailwind 入口、Element Plus 主题变量、毛玻璃等
+├── assets/styles/    # Tailwind 入口、Element Plus 主题变量、卡片/数字滚动等纯 CSS
 ├── components/
-│   ├── atoms/        # BaseButton / BaseInput / BaseBadge / BaseCheckbox
-│   ├── molecules/    # TodoItem / SearchBar / ThemeToggle
-│   └── organisms/    # TodoList / TodoForm / MyDay / DailyGreeting / EarningsClock / StatisticsCard ...
+│   ├── atoms/        # BaseButton / BaseInput / BaseBadge / BaseCheckbox / DigitRoll / TrendBadge
+│   ├── molecules/    # TodoItem / SearchBar / ThemeToggle / RollingAmount
+│   └── organisms/    # TodoList / TodoForm / MyDay / DailyGreeting / EarningsClock / TodayProgressCard ...
 ├── composables/      # useTheme / useWeather / useEarnings / useECharts / useStatistics ...
 ├── data/             # quotes.json（每日格言，本地 JSON 轮换）
 ├── stores/           # todoStore / themeStore
 ├── types/            # todo / weather / statistics / earnings 类型定义
-└── utils/            # 日期、优先级、校验、主题色、统计聚合、赚钱换算、每日格言
+└── utils/            # 日期、优先级、校验、主题色、统计聚合、赚钱换算、每日格言、金额拆位
 ```
 
-## 两个"算得准"的实现细节
+## 🎨 视觉规范与主题系统
+
+设计语言：**浅灰底 + 白底大圆角卡片 + 单一绿色强调 + 大数字排版**，几乎不用阴影，靠底色差分层。
+
+| 元素         | 落地方式                                                                                                                                                                           |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 页面底色     | `body` 已是 `bg-slate-100` / `dark:bg-slate-950`（`main.css`）                                                                                                                     |
+| 卡片         | `.card`（`custom.css`）：白底 / 暗色 `slate-900` + `border-radius: calc(var(--app-radius) + 8px)`，即**圆角设置 小/中/大 = 16/20/24px**                                            |
+| C 位强调卡   | `.card-accent`：深绿渐变底 + 白色大数字（赚钱秒表卡，暗色模式下保持不变）                                                                                                          |
+| 强调色       | **默认 emerald**，`themeStore` 预设新增 `lavender`；`element-theme.css` 给静态基准值，运行时由 `useTheme` 把用户选择写进 `--el-color-primary` 系列变量                             |
+| 组件跟随主题 | `BaseButton`(primary) / `BaseInput`(focus) / `BaseBadge`(primary) / `BaseCheckbox` / 设置页选中态 / ECharts 柱子颜色**全部读 CSS 变量**，换主题色即刻全站生效（不再硬编码 indigo） |
+| 大数字       | `text-4xl font-bold tabular-nums tracking-tight`（秒表、完成度）                                                                                                                   |
+| 涨跌徽章     | `TrendBadge` 原子组件：↑ 绿 / ↓ 红 / — 持平，支持自定义后缀与无障碍描述                                                                                                            |
+| 仪表板布局   | 三列 bento grid（`lg:grid-cols-3`）：赚钱秒表深绿卡跨 2 行占 C 位，右侧依次是今日完成度环形卡、天气卡、每日格言，下方今日聚焦 + 任务概览，再往下是任务区与可视化                   |
+| Element Plus | `--el-border-radius-base: 12px` 与卡片圆角协调                                                                                                                                     |
+
+> 侧边栏 240px + 4 页面路由拆分属于第五阶段（与登录守卫共用同一套路由骨架），本期未实现。
+
+## 三个"算得准"的实现细节
 
 ### 赚钱秒表（`useEarnings` + `utils/earnings.ts`）
 
@@ -66,6 +85,21 @@ src/
   而个别月份有 22~23 个工作日，按位累计会略超工资，实际发放额就是月薪。月末数字会正好停在月薪。
 - **状态文案**：上班前「距离上班还有 X」、午休「距离下午上班还有 X」、工作中「距离午休/下班还有 X」、
   下班后显示今日总计；上班前与周末**不显示今日金额**（只给文案），但「本月已赚」是月度累计、始终展示。
+- **数字逐位上滑滚动（odometer）**：金额按位拆成 `DigitRoll`（每个窗口高 1em + `overflow:hidden`，
+  内部 0-9 纵向一列，用 `translateY(-n × 1em)` + `transition` 完成上滑），约 40 行纯 CSS、不引动画库。
+  三个关键细节：
+  1. **只让变化的位滚动**——未变化的位 `transform` 目标值不变，CSS 过渡自然不触发，不需要新旧逐位对比逻辑；
+  2. **按「位序」而不是字符下标分配 key**（`utils/amountDigits.ts`：个位 i0、十位 i1、十分位 f0…）——
+     否则 999.99 → 1,000.00 插入一个千分位逗号会让后面所有位"错位"整行重滚；
+  3. **等宽防抖 + 无障碍**——`tabular-nums` 避免 1 与 0 宽度不同导致整行抖动；滚动列 `aria-hidden`，
+     完整金额另用 `sr-only` 提供给读屏。`prefers-reduced-motion: reduce` 时关闭过渡，数字直接切换。
+
+### 今日完成度（`useStatistics.ts` 的 `computeTodayProgress`）
+
+- 口径一句话说清：`今日完成 ÷（今日完成 + 今日到期未完成）`——分母是"今天台面上的事"（做完的 + 该做没做的），
+  既不重复计数，也不受历史任务量影响。
+- 涨跌徽章对比**昨日完成数**；昨日为 0 而今日有产出记 +100%（避免除零与 Infinity）。
+- 今天既无到期任务又无产出时 `hasTarget` 为 false，卡片换成"今日暂无到期任务"引导文案，不显示 0% 的空环。
 
 ### 每日格言（`utils/dailyQuote.ts` + `data/quotes.json`）
 
@@ -167,20 +201,23 @@ VITE_AMAP_KEY=你的Key
 - **状态管理**：Pinia（任务、主题偏好）
 - **运行时主题**：改主题色/圆角写入 `--el-color-primary` 系列 CSS 变量 + `ElConfigProvider` 注入密度，`html.dark` 一处切换深浅，无需重新编译主题包
 - **撤销删除**：软删除 + 延迟提交，权衡数据安全与体验
-- **纯函数优先**：赚钱换算（`utils/earnings.ts`）、每日格言（`utils/dailyQuote.ts`）、统计聚合（`useStatistics.ts`）都做成可注入 `now` 的纯函数，组件只负责渲染，逻辑好测也好讲
-- **渐进增强的降级链路**：定位（定位 → 记忆位置 → 默认城市）、天气（缓存 → 接口 → 错误重试）、存储（localStorage → 内存态）都保证"永远有东西可看"
+- **纯函数优先**：赚钱换算（`utils/earnings.ts`）、每日格言（`utils/dailyQuote.ts`）、统计聚合（`useStatistics.ts`）、
+  金额拆位（`utils/amountDigits.ts`）都做成可注入 `now` / 纯输入输出的纯函数，组件只负责渲染，逻辑好测也好讲
+- **渐进增强的降级链路**：定位（定位 → 记忆位置 → 默认城市）、天气（缓存 → 接口 → 错误重试）、存储（localStorage → 内存态）、动效（`prefers-reduced-motion` → 直接切换）都保证"永远有东西可看/可用"
 
 ## Git 规范
 
 - 提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/)（husky + commitlint 强制校验）
 - 提交前由 lint-staged 自动执行 ESLint/Prettier
+- ⚠️ commitlint 的 `subject-case` 规则只在 subject **以有大小写的拉丁字母开头**时生效：以 `ECharts`、`API` 这类英文缩写开头会被判为 start-case 而拒绝，写成中文开头即可
 
 ## 待优化项
 
 - **路由分包**：当前所有模块由单页 `App.vue` 装配，构建产物集中在一个 chunk（约 970 kB，gzip 325 kB）。第五阶段启用 vue-router 后按页面懒加载（`() => import()`）+ `keep-alive`，首屏只留仪表板
+- **侧边栏布局**：视觉规范里定了桌面端 240px 侧边栏（可折叠 icon rail）+ 顶栏全局搜索，与 4 路由一起在第五阶段落地
 - PWA 离线、键盘快捷键（VueUse `useMagicKeys`）、数据导入导出、命令面板、迷你月历、连续打卡（Streak）
 - 拖拽排序目前用原生 HTML5 Drag & Drop（无依赖）；若要更顺滑的跨列表拖拽，可引入 `@vueuse/integrations` + `sortablejs`
-- 测试覆盖率提升（当前 30 个测试文件 / 259 个用例）
+- 测试覆盖率提升（当前 43 个测试文件 / 430+ 用例，含第五阶段进行中的用例）
 
 ## 许可证
 
