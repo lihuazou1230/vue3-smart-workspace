@@ -337,7 +337,7 @@ onMounted(async () => {
                 密码
               </label>
               <button
-                v-if="tab === 'signIn'"
+                v-if="tab === 'signIn' && !isLocalMode"
                 type="button"
                 data-testid="login-forgot-password"
                 class="text-xs text-[var(--el-color-primary)] underline-offset-2 hover:underline"

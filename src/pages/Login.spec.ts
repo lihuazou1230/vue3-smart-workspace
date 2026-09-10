@@ -390,6 +390,13 @@ describe('Login 页', () => {
       expect(wrapper.find('[data-testid="login-tab-signin"]').exists()).toBe(true)
       expect(wrapper.find('[data-testid="login-password"]').exists()).toBe(true)
     })
+
+    it('本地模式不显示入口（没配 Supabase 时发不出重置邮件，避免死路）', async () => {
+      configureSupabase(false)
+      const { wrapper } = await mountLogin()
+
+      expect(wrapper.find('[data-testid="login-forgot-password"]').exists()).toBe(false)
+    })
   })
 
   describe('GitHub OAuth', () => {
