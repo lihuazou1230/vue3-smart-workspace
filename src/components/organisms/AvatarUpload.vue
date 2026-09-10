@@ -245,10 +245,12 @@ onBeforeUnmount(resetCrop)
       />
 
       <!--
-        裁剪区：**原图自己就是画布**（不再铺暗色背板/压暗遮罩）。
+        裁剪区：**原图自己就是画布**（不铺暗色背板/压暗遮罩）。
         正方形舞台是必须的——cropperjs v2 的 <cropper-image> 绝对定位，
         尺寸由 <cropper-canvas> 的 client size 决定（见下方 :deep 样式）。
-        圆形引导环只用来提示"最终露出来的范围"，不参与导出。
+
+        白色圆环 = 头像最终露出的范围，直径取满整个方形（与选区 initial-coverage="1" 一致），
+        用 ring-inset 画在内侧，避免贴着舞台边缘被 overflow-hidden 裁掉一半。
       -->
       <div
         v-if="sourceUrl"
@@ -258,7 +260,7 @@ onBeforeUnmount(resetCrop)
       >
         <img ref="cropImage" data-testid="avatar-crop-image" :src="sourceUrl" alt="待裁剪图片" />
         <div
-          class="pointer-events-none absolute left-1/2 top-1/2 h-4/5 w-4/5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white shadow-[0_0_0_1px_rgba(15,23,42,0.35)]"
+          class="pointer-events-none absolute inset-0 rounded-full ring-2 ring-inset ring-white shadow-[inset_0_0_0_1px_rgba(15,23,42,0.35)]"
           aria-hidden="true"
         ></div>
       </div>

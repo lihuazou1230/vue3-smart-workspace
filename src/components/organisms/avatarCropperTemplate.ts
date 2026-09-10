@@ -13,7 +13,8 @@
  * - 画布**不加 `background`**：那是棋盘格背板，而我们要求"原图即画布"
  *
  * `aspect-ratio="1"` 保证导出素材是正方形（圆形头像的素材就是正方形）；
- * 圆形范围由组件里的白色引导环提示，纯视觉、不参与导出。
+ * `initial-coverage="1"` 让选区铺满整个裁剪区——**圆直径 = 裁剪区边长**，
+ * 也就是"框内所见即头像范围"，用户只负责拖动/缩放决定哪一块落进框里。
  *
  * 另外两个关键属性保证「圆永远不超出图片」：
  * - `initial-fit="cover"`：图片初始就铺满裁剪区（而不是等比缩小后留出空白边）
@@ -23,7 +24,7 @@ export const AVATAR_CROPPER_TEMPLATE = `
 <cropper-canvas>
   <cropper-image rotatable scalable skewable translatable initial-fit="cover" min-fit="cover"></cropper-image>
   <cropper-handle action="select" plain></cropper-handle>
-  <cropper-selection initial-coverage="0.8" aspect-ratio="1">
+  <cropper-selection initial-coverage="1" aspect-ratio="1">
     <cropper-handle action="move" plain theme-color="transparent"></cropper-handle>
   </cropper-selection>
 </cropper-canvas>

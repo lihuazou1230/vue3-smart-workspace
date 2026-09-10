@@ -223,11 +223,18 @@ describe('AvatarUpload', () => {
     // 选区不可移动 → cropperjs 会把拖动转成"移动图片"；并保留透明 move 手势层
     expect(AVATAR_CROPPER_TEMPLATE).not.toMatch(/<cropper-selection[^>]*movable/)
     expect(AVATAR_CROPPER_TEMPLATE).toContain('action="move" plain theme-color="transparent"')
-    // 1:1 选区仍在（导出素材必须是正方形）
+    // 1:1 选区仍在（导出素材必须是正方形），且铺满裁剪区 → 圆直径 = 裁剪区边长
     expect(AVATAR_CROPPER_TEMPLATE).toContain('aspect-ratio="1"')
+    expect(AVATAR_CROPPER_TEMPLATE).toContain('initial-coverage="1"')
     // 图片铺满裁剪区、且不许缩到比裁剪区还小 → 圆不会盖到空白
     expect(AVATAR_CROPPER_TEMPLATE).toContain('initial-fit="cover"')
     expect(AVATAR_CROPPER_TEMPLATE).toContain('min-fit="cover"')
+  })
+
+  it('圆形引导环直径铺满裁剪区（ring-inset 避免贴边被裁掉）', () => {
+    expect(avatarUploadSource).toContain(
+      'absolute inset-0 rounded-full ring-2 ring-inset ring-white',
+    )
   })
 
   it('裁剪区样式必须给 cropper-canvas 显式尺寸（否则画布塌成 0，图片会以原始尺寸飘在左上角）', () => {
