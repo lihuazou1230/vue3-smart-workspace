@@ -4,6 +4,14 @@
 
 > 当前进度：**第一 ~ 五阶段已完成**（基础建设 / 任务管理闭环 / 可视化与天气集成 / 体验优化与交付 / 用户系统与多设备同步）。
 
+## 在线演示
+
+- **线上地址**：<https://lihuazou1230.github.io/vue3-smart-workspace/>（GitHub Pages，由 `.github/workflows/deploy-pages.yml` 自动部署）
+- **源码仓库**：<https://github.com/lihuazou1230/vue3-smart-workspace>
+
+打开即用：任务管理、今日聚焦、子任务、批量操作、统计图表、热力图、赚钱秒表、每日格言、天气定位全部可用；
+未配置 Supabase 时会自动进入**本地模式**（不登录、不云同步，其余功能完整）。
+
 ## 核心功能
 
 - 👤 **用户系统**：邮箱密码注册/登录 + GitHub OAuth，刷新页面会话自动恢复（不闪跳登录页），未登录访问受保护页自动重定向并带原目标回跳
