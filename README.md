@@ -349,11 +349,53 @@ create policy "todos: own rows only" on public.todos
 
 ## 在线部署（Vercel）
 
-项目默认识别为 Vite。已提供 `vercel.json`（SPA 重写 + 构建配置）。在 Vercel 项目环境变量中配置 `VITE_AMAP_KEY`（天气）与 `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`（用户系统）即可全部启用。
+项目默认识别为 Vite，仓库里已提供 `vercel.json`（SPA 重写 + 构建配置），**根目录就是仓库根**，不需要 Root Directory 设置：
 
-> 用了 GitHub OAuth 时，记得在 Supabase → Authentication → URL Configuration 里把 Vercel 域名加入 Redirect URLs（本地开发再加 `http://localhost:5173`）。
+```json
+{
+  "framework": "vite",
+  "buildCommand": "pnpm build",
+  "outputDirectory": "dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+```
 
-上线前可以本地先验一遍"路由能不能直接访问"：`pnpm build && pnpm preview`，然后直接请求 `/`、`/todos`、`/stats`、`/settings`、`/login`——5 条都应返回 200 且是应用 HTML（这一步等价于 `vercel.json` 里那条 SPA rewrite，刷新子路由不会 404）。
+Node 版本由 `package.json` 的 `engines.node`（`>=22.12.0`）声明——Vite 8 要求 `^20.19.0 || >=22.12.0`，
+Vercel 会自动挑满足条件的版本；不使用 `packageManager` 字段，Vercel 依据 `pnpm-lock.yaml`（lockfileVersion 9.0）自动选 pnpm。
+
+### 环境变量（必须，构建期注入）
+
+Vite 的 `VITE_*` 是**构建时内联**的，所以变量要在 Vercel 项目里配好再构建（改完要重新 Deploy 才生效）：
+
+| 变量                     | 用途                     | 不配的后果                                           |
+| ------------------------ | ------------------------ | ---------------------------------------------------- |
+| `VITE_AMAP_KEY`          | 高德「Web 服务」Key      | 天气卡显示"未配置 Key"的引导                         |
+| `VITE_SUPABASE_URL`      | Supabase Project URL     | 应用进入**本地模式**（不登录、不同步，其余功能照常） |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon public key | 同上（anon key 是公开的，真正的权限在数据库 RLS）    |
+
+### 步骤
+
+1. 把仓库推到 GitHub（本仓库根即 `vue3-smart-workspace/`），Vercel → **Add New → Project → Import** 该仓库
+2. Framework 会自动识别为 Vite；确认 Build Command = `pnpm build`、Output Directory = `dist`
+3. 展开 **Environment Variables**，把上表三个变量填进去（Production / Preview 都勾上更省事）
+4. **Deploy**，等 1~2 分钟拿到 `https://<项目名>.vercel.app`
+5. 回到 **Supabase → Authentication → URL Configuration**：Site URL 填 Vercel 域名，Redirect URLs 加上
+   `https://<项目名>.vercel.app/**` 与 `http://localhost:5173/**`（GitHub OAuth 与邮箱验证/重置链接都靠它回跳）
+
+> 不想接 GitHub 也可以走 CLI：`pnpm dlx vercel`（首次会引导登录并创建项目）→ `pnpm dlx vercel --prod`，
+> 环境变量用 `pnpm dlx vercel env add VITE_AMAP_KEY` 逐个添加。代价是每次更新都要本地手动发一次。
+
+### 上线后的自检清单
+
+- [ ] 首页仪表板能出数字（秒表在计薪时间内会跳动、今日完成度环形图有渲染）
+- [ ] 刷新 `/todos`、`/stats`、`/settings` 这些子路由**不 404**（这条由 `vercel.json` 的 rewrite 保证）
+- [ ] 天气卡能显示当前位置（Vercel 是 HTTPS，浏览器才会给定位权限；`http://局域网 IP` 会直接被拒）
+- [ ] 未登录访问 `/todos` 会跳到 `/login`，登录后回到 `/todos`（配了 Supabase 才有登录环节）
+- [ ] 换一台设备／无痕窗口登录同一账号，任务数据一致
+- [ ] 头像上传后侧边栏与设置页都显示圆形头像
+
+本地也可以先验一遍"路由能不能直接访问"：`pnpm build && pnpm preview`，然后直接请求 `/`、`/todos`、`/stats`、
+`/settings`、`/login`——5 条都应返回 200 且是应用 HTML（等价于上面那条 SPA rewrite）。
 
 ## 设计思路
 
