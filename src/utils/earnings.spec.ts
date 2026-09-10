@@ -3,16 +3,20 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_EARNINGS_CONFIG } from '@/types/earnings'
 import type { EarningsConfig } from '@/types/earnings'
 import {
+  completedPaidDaysBefore,
   computeEarnings,
   dailyEarnedFen,
   dailyWorkSeconds,
   earnedFen,
+  elapsedPaidDays,
   elapsedWorkSeconds,
   formatDuration,
   formatFen,
   hourlyEarnedFen,
   isEarningsConfigured,
+  monthlyEarnedFen,
   nextChange,
+  paidDaysInMonth,
   parseTimeToSeconds,
   resolveEarningsStatus,
   secondsOfDay,
@@ -220,6 +224,64 @@ describe('下一次状态切换', () => {
   it('下班后/周末 → 无切换点', () => {
     expect(nextChange(CONFIG, at(19, 0))).toEqual({ target: 'none', seconds: 0 })
     expect(nextChange(CONFIG, at(10, 0, 0, 12))).toEqual({ target: 'none', seconds: 0 })
+  })
+})
+
+describe('本月已赚（次要指标）', () => {
+  it('本月计薪天数 = 当月周一~周五的天数（2026-09 为 22 天）', () => {
+    expect(paidDaysInMonth(CONFIG, at(10))).toBe(22)
+    // 关闭「仅工作日计薪」则为整月天数
+    expect(paidDaysInMonth({ ...CONFIG, weekdaysOnly: false }, at(10))).toBe(30)
+  })
+
+  it('已完整过去的计薪天数只数到昨天', () => {
+    // 9/1(二)~9/9(三) 共 7 个工作日
+    expect(completedPaidDaysBefore(CONFIG, at(10))).toBe(7)
+    // 9/10 当天：昨天是 9/9，仍为 7
+    expect(completedPaidDaysBefore(CONFIG, at(10, 23))).toBe(7)
+    // 9/14(一)：过去的工作日 = 9/1~9/11 共 9 天
+    expect(completedPaidDaysBefore(CONFIG, at(10, 0, 0, 14))).toBe(9)
+    // 9/1 当天：没有完整过去的计薪日
+    expect(completedPaidDaysBefore(CONFIG, at(10, 0, 0, 1))).toBe(0)
+  })
+
+  it('已计薪天数 = 完整过去的天数 + 今天（今天是计薪日时）', () => {
+    expect(elapsedPaidDays(CONFIG, at(10))).toBe(8)
+    // 周六：今天不计薪，只算过去的 9 天
+    expect(elapsedPaidDays(CONFIG, at(10, 0, 0, 12))).toBe(9)
+  })
+
+  it('本月已赚 = 完整计薪天数 × 日薪 + 今日已赚', () => {
+    // 7 × 1000 + 今日 375（12:00 时已在午休起点）= 7375.00
+    expect(formatFen(monthlyEarnedFen(CONFIG, at(12, 0)))).toBe('7,375.00')
+    // 9/1 当天只有今日部分
+    expect(formatFen(monthlyEarnedFen(CONFIG, at(12, 0, 0, 1)))).toBe('375.00')
+    expect(monthlyEarnedFen(CONFIG, at(9, 0, 0, 1))).toBe(0)
+  })
+
+  it('周末不再累加，只保留已完整过去的部分', () => {
+    // 周六 9/12：过去 9 天 × 1000 = 9000.00
+    expect(formatFen(monthlyEarnedFen(CONFIG, at(14, 0, 0, 12)))).toBe('9,000.00')
+  })
+
+  it('封顶在月薪：工作日多于月计薪天数时不会超发', () => {
+    // 9/30 下班后：21 个完整计薪日 + 今日满勤 = 22000 > 21750
+    const cap = monthlyEarnedFen(CONFIG, at(23, 0, 0, 30))
+    expect(formatFen(cap)).toBe('21,750.00')
+    expect(cap).toBe(yuanToFen(CONFIG.monthlySalary))
+  })
+
+  it('未配置月薪时本月已赚为 0', () => {
+    expect(monthlyEarnedFen({ ...CONFIG, monthlySalary: 0 }, at(12))).toBe(0)
+    expect(monthlyEarnedFen({ ...CONFIG, monthWorkDays: 0 }, at(12))).toBe(0)
+  })
+
+  it('快照同时带出今日与本月两个指标', () => {
+    const snapshot = computeEarnings(CONFIG, at(10))
+    expect(formatFen(snapshot.earnedFen)).toBe('125.00')
+    expect(formatFen(snapshot.monthEarnedFen)).toBe('7,125.00')
+    expect(snapshot.monthPaidDays).toBe(22)
+    expect(snapshot.monthElapsedPaidDays).toBe(8)
   })
 })
 

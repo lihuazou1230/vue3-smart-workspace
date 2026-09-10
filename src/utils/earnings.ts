@@ -140,6 +140,50 @@ export function isPaidDay(config: EarningsConfig, now: Date): boolean {
   return day !== 0 && day !== 6
 }
 
+/** 本月计薪天数（整月，含尚未到来的日子） */
+export function paidDaysInMonth(config: EarningsConfig, now: Date): number {
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  const total = new Date(year, month + 1, 0).getDate()
+  let count = 0
+  for (let day = 1; day <= total; day++) {
+    if (isPaidDay(config, new Date(year, month, day))) count += 1
+  }
+  return count
+}
+
+/** 本月截至「昨天」已完整过去的计薪天数 */
+export function completedPaidDaysBefore(config: EarningsConfig, now: Date): number {
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  const today = now.getDate()
+  let count = 0
+  for (let day = 1; day < today; day++) {
+    if (isPaidDay(config, new Date(year, month, day))) count += 1
+  }
+  return count
+}
+
+/** 本月已计薪天数：已完整过去的天数 + 今天（今天是计薪日时） */
+export function elapsedPaidDays(config: EarningsConfig, now: Date): number {
+  return completedPaidDaysBefore(config, now) + (isPaidDay(config, now) ? 1 : 0)
+}
+
+/**
+ * 本月已赚（分）——次要指标。
+ * 与「今日已赚」共用同一个日薪基准（月薪 ÷ 月计薪天数），保证两个数字对得上账：
+ * `已完整计薪天数 × 日薪 + 今日已赚`，并**封顶在月薪**——月计薪天数取的是月平均
+ * 21.75 天，个别月份有 22~23 个工作日，按位累计会略微超过工资，而实际发放额就是月薪。
+ */
+export function monthlyEarnedFen(config: EarningsConfig, now: Date): number {
+  const monthly = yuanToFen(config.monthlySalary)
+  if (monthly <= 0 || config.monthWorkDays <= 0) return 0
+
+  const days = completedPaidDaysBefore(config, now)
+  const past = Math.round((monthly * days) / config.monthWorkDays)
+  return Math.min(monthly, past + earnedFen(config, now))
+}
+
 /** 当前计薪状态 */
 export function resolveEarningsStatus(config: EarningsConfig, now: Date): EarningsStatus {
   if (yuanToFen(config.monthlySalary) <= 0) return 'not-configured'
@@ -200,6 +244,9 @@ export function computeEarnings(config: EarningsConfig, now: Date = new Date()):
   return {
     status,
     earnedFen: earnedFen(config, now),
+    monthEarnedFen: monthlyEarnedFen(config, now),
+    monthPaidDays: paidDaysInMonth(config, now),
+    monthElapsedPaidDays: elapsedPaidDays(config, now),
     dailyFen: dailyEarnedFen(config),
     hourlyFen: hourlyEarnedFen(config),
     dailyWorkSeconds: totalSeconds,

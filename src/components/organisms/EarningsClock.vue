@@ -2,9 +2,10 @@
 /**
  * 有机体组件：赚钱秒表（EarningsClock）
  *
- * - 计薪时间内大号金额实时跳动，精准到分；金额由「时间戳差值」重算，
+ * - 主指标：今日已赚，大号金额实时跳动、精准到分；金额由「时间戳差值」重算，
  *   不做逐秒累加，所以切到后台再切回来数字依然准确（无跳变、无漂移）
- * - 上班前 / 周末只显示状态文案，不显示金额；午休冻结、下班后显示今日总计
+ * - 次指标：本月已赚（含今日进度，封顶月薪），同屏次要展示
+ * - 上班前 / 周末不显示「今日」金额（只给状态文案）；「本月已赚」是月度累计，始终展示
  * - 内嵌设置：月薪 / 上下班时间 / 午休 / 月计薪天数 / 是否仅工作日，改完即时生效并持久化
  */
 
@@ -16,7 +17,8 @@ import { useEarnings } from '@/composables/useEarnings'
 import { EARNINGS_STATUS_TEXT } from '@/types/earnings'
 import { formatDuration, formatFen } from '@/utils/earnings'
 
-const { config, snapshot, amountText, isConfigured, updateConfig, resetConfig } = useEarnings()
+const { config, snapshot, amountText, monthAmountText, isConfigured, updateConfig, resetConfig } =
+  useEarnings()
 
 /** 设置区默认在「未配置」时展开，配置好后收起 */
 const settingsOpen = ref(!isConfigured.value)
@@ -119,10 +121,11 @@ function restoreDefaults() {
       </BaseButton>
     </header>
 
-    <!-- 金额区 -->
+    <!-- 主指标：今日已赚 -->
     <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <template v-if="showAmount">
         <p
+          data-testid="earnings-today"
           class="font-mono text-3xl font-bold tabular-nums text-slate-800 sm:text-4xl dark:text-slate-100"
         >
           <span class="text-xl text-slate-400 dark:text-slate-500">¥</span>{{ amountText }}
@@ -133,6 +136,21 @@ function restoreDefaults() {
         {{ statusText }}
       </p>
     </div>
+
+    <!-- 次指标：本月已赚（月度累计，非计薪日也保留展示） -->
+    <p
+      v-if="isConfigured"
+      data-testid="earnings-month"
+      class="mt-1.5 text-sm text-slate-500 dark:text-slate-400"
+    >
+      本月已赚
+      <span class="ml-1 font-mono font-semibold tabular-nums text-slate-700 dark:text-slate-200"
+        >¥{{ monthAmountText }}</span
+      >
+      <span class="ml-2 text-xs text-slate-400 dark:text-slate-500"
+        >已计薪 {{ snapshot.monthElapsedPaidDays }}/{{ snapshot.monthPaidDays }} 天</span
+      >
+    </p>
 
     <!-- 倒计时 / 总计 -->
     <p v-if="hintText" class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ hintText }}</p>

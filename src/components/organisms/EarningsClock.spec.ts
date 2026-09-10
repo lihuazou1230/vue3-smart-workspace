@@ -22,9 +22,14 @@ function freezeTime(hours: number, minutes = 0, seconds = 0, day = 10) {
   vi.setSystemTime(new Date(2026, 8, day, hours, minutes, seconds))
 }
 
-/** 大号金额元素（只在展示金额的状态下渲染） */
+/** 主指标元素：今日已赚金额（只在展示今日金额的状态下渲染） */
 function amountElement(wrapper: ReturnType<typeof mount>) {
-  return wrapper.find('p.font-mono')
+  return wrapper.find('[data-testid="earnings-today"]')
+}
+
+/** 次指标元素：本月已赚 */
+function monthElement(wrapper: ReturnType<typeof mount>) {
+  return wrapper.find('[data-testid="earnings-month"]')
 }
 
 async function openSettings(wrapper: ReturnType<typeof mount>) {
@@ -65,6 +70,44 @@ describe('EarningsClock', () => {
     expect(wrapper.text()).toContain('日薪 ¥1,000.00')
     expect(wrapper.text()).toContain('每日计薪 8 小时')
     expect(wrapper.find('[role="progressbar"]').attributes('aria-valuenow')).toBe('25')
+  })
+
+  it('主指标是「今日已赚」、次指标是「本月已赚」，两者同屏且层级分明', () => {
+    seed(CONFIG)
+    freezeTime(10)
+    const wrapper = mount(EarningsClock)
+
+    // 今日：09:00-10:00 计薪 1 小时 => 125.00 元
+    expect(amountElement(wrapper).text()).toContain('125.00')
+    // 本月：9/1 ~ 9/9 完整计薪 7 天（7000.00）+ 今日 125.00 = 7125.00 元
+    expect(monthElement(wrapper).text()).toContain('本月已赚')
+    expect(monthElement(wrapper).text()).toContain('7,125.00')
+    expect(monthElement(wrapper).text()).toContain('已计薪 8/22 天')
+
+    // 层级：今日金额 3xl 起步，月金额是 text-sm
+    expect(amountElement(wrapper).classes().join(' ')).toContain('text-3xl')
+    expect(monthElement(wrapper).classes().join(' ')).toContain('text-sm')
+  })
+
+  it('周末：今日金额隐藏，但本月已赚（月度累计）仍然展示', () => {
+    seed(CONFIG)
+    freezeTime(14, 0, 0, 12)
+    const wrapper = mount(EarningsClock)
+
+    expect(amountElement(wrapper).exists()).toBe(false)
+    // 9/1 ~ 9/11 完整计薪 9 天 => 9000.00 元（周末当天不计薪）
+    expect(monthElement(wrapper).text()).toContain('9,000.00')
+    expect(monthElement(wrapper).text()).toContain('已计薪 9/22 天')
+  })
+
+  it('本月已赚封顶在月薪（月计薪天数取月平均，工作日多的月份不会超发）', () => {
+    seed(CONFIG)
+    // 2026-09-30（周三）下班后：21 个完整计薪日 + 今日满勤
+    freezeTime(19, 0, 0, 30)
+    const wrapper = mount(EarningsClock)
+
+    expect(monthElement(wrapper).text()).toContain('21,750.00')
+    expect(monthElement(wrapper).text()).toContain('已计薪 22/22 天')
   })
 
   it('午休期间：金额冻结在午休开始时刻', () => {

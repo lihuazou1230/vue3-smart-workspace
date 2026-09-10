@@ -44,8 +44,14 @@ export type EarningsNextChange = 'none' | 'on-work' | 'lunch' | 'off-work'
 /** 某一时刻的赚钱秒表快照（全部金额单位为「分」） */
 export interface EarningsSnapshot {
   status: EarningsStatus
-  /** 今日已赚（分） */
+  /** 今日已赚（分）——主指标 */
   earnedFen: number
+  /** 本月已赚（分）——次要指标 */
+  monthEarnedFen: number
+  /** 本月计薪天数（整月） */
+  monthPaidDays: number
+  /** 本月已计薪天数（已完整过去 + 今天，非计薪日不加） */
+  monthElapsedPaidDays: number
   /** 今日满勤应得（分） */
   dailyFen: number
   /** 时薪（分） */

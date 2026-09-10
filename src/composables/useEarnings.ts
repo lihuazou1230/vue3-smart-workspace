@@ -31,8 +31,10 @@ export interface UseEarningsOptions {
 export interface UseEarningsReturn {
   config: Ref<EarningsConfig>
   snapshot: ComputedRef<EarningsSnapshot>
-  /** 金额文本（元，两位小数，千分位） */
+  /** 今日已赚金额文本（主指标；元，两位小数，千分位） */
   amountText: ComputedRef<string>
+  /** 本月已赚金额文本（次指标） */
+  monthAmountText: ComputedRef<string>
   /** 是否已配置可用（月薪 > 0 且工作时段合法） */
   isConfigured: ComputedRef<boolean>
   /** 立即用最新时间戳重算 */
@@ -61,6 +63,7 @@ export function useEarnings(options: UseEarningsOptions = {}): UseEarningsReturn
   const now = ref<Date>(clock())
   const snapshot = computed<EarningsSnapshot>(() => computeEarnings(config.value, now.value))
   const amountText = computed(() => formatFen(snapshot.value.earnedFen))
+  const monthAmountText = computed(() => formatFen(snapshot.value.monthEarnedFen))
   const isConfigured = computed(() => isEarningsConfigured(config.value))
 
   function refresh() {
@@ -93,6 +96,7 @@ export function useEarnings(options: UseEarningsOptions = {}): UseEarningsReturn
     config,
     snapshot,
     amountText,
+    monthAmountText,
     isConfigured,
     refresh,
     updateConfig,

@@ -58,8 +58,9 @@ describe('App 集成', () => {
     expect(wrapper.text()).toContain('9月10日 星期四')
     expect(wrapper.text()).toContain(quoteOfDay('2026-09-10').text)
 
-    // 赚钱秒表：09:00-10:00 计薪 1 小时 => 125.00 元
+    // 赚钱秒表：今日 09:00-10:00 计薪 1 小时 => 125.00 元；本月（7 个完整计薪日 + 今日）=> 7,125.00 元
     expect(wrapper.text()).toContain('💰 赚钱秒表')
-    expect(wrapper.find('p.font-mono').text()).toContain('125.00')
+    expect(wrapper.find('[data-testid="earnings-today"]').text()).toContain('125.00')
+    expect(wrapper.find('[data-testid="earnings-month"]').text()).toContain('7,125.00')
   })
 })
