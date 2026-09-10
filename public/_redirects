@@ -1,0 +1,3 @@
+# SPA 回退：任何路径都交给 index.html，由前端路由接管
+# Cloudflare Pages 与 Netlify 都会读取本文件（放在 public/ 下，构建时会被复制到 dist 根目录）
+/*    /index.html   200

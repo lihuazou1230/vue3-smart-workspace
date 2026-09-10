@@ -1,0 +1,23 @@
+# Netlify 部署配置（与 Vercel 平行的一份，互为备份）
+# 用法：Netlify → Add new site → Import an existing project → 选 GitHub 仓库，其余自动识别
+
+[build]
+  command = "pnpm build"
+  publish = "dist"
+
+[build.environment]
+  # Vite 8 要求 Node ^20.19.0 || >=22.12.0，这里钉在 22 线
+  NODE_VERSION = "22"
+
+# SPA 回退：刷新 /todos、/stats 这类子路由不要 404
+# （public/_redirects 里也有一份等价声明，两者任一即可，这里显式写出来更清楚）
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# 静态资源长缓存（文件名带 hash，可以放心 immutable）
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

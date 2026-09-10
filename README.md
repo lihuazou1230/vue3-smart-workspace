@@ -347,9 +347,34 @@ create policy "todos: own rows only" on public.todos
    普通 `ref` 会把对象包成响应式 Proxy，而 `Blob` 的方法依赖内部槽，
    Proxy 包装后在浏览器里调用 `upload/arrayBuffer` 会直接抛 `Illegal invocation`（已被用例覆盖）
 
-## 在线部署（Vercel）
+## 在线部署
 
-项目默认识别为 Vite，仓库里已提供 `vercel.json`（SPA 重写 + 构建配置），**根目录就是仓库根**，不需要 Root Directory 设置：
+> **注册被手机验证挡住？** Vercel 对新账号强制手机验证，而 **+86 号码经常收不到验证码**（平台风控问题，与项目无关，官方没有跳过选项）。
+> 本项目是纯静态 SPA，**下面三个平台都不要手机号**，仓库里已经把配置都备好了，哪边顺利走哪边即可。
+
+| 平台                 | 登录方式             | 仓库内已备配置文件                                            | 构建设置                                 |
+| -------------------- | -------------------- | ------------------------------------------------------------- | ---------------------------------------- |
+| **Vercel**           | GitHub               | `vercel.json`                                                 | `pnpm build` → `dist`                    |
+| **Cloudflare Pages** | GitHub（不要手机号） | `public/_redirects`                                           | `pnpm build` → `dist`，`NODE_VERSION=22` |
+| **Netlify**          | GitHub（不要手机号） | `netlify.toml` + `public/_redirects`                          | 已写在 `netlify.toml`，导入即用          |
+| GitHub Pages         | 同一 GitHub 账号     | 需 Actions 工作流（构建时加 `--base=/vue3-smart-workspace/`） | 仅静态产物，无环境变量注入               |
+
+三个平台的行为一致：**SPA 回退**（刷新 `/todos`、`/stats` 不 404）+ **构建期注入 `VITE_*` 环境变量**。
+所以下面的环境变量表与自检清单一套通用。
+
+### 环境变量（必须，构建期注入）
+
+Vite 的 `VITE_*` 是**构建时内联**的，所以变量要在平台里配好再构建（改完要重新 Deploy 才生效）：
+
+| 变量                     | 用途                     | 不配的后果                                           |
+| ------------------------ | ------------------------ | ---------------------------------------------------- |
+| `VITE_AMAP_KEY`          | 高德「Web 服务」Key      | 天气卡显示"未配置 Key"的引导                         |
+| `VITE_SUPABASE_URL`      | Supabase Project URL     | 应用进入**本地模式**（不登录、不同步，其余功能照常） |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon public key | 同上（anon key 是公开的，真正的权限在数据库 RLS）    |
+
+### 步骤（Vercel）
+
+仓库里已提供 `vercel.json`（SPA 重写 + 构建配置），**根目录就是仓库根**，不需要 Root Directory 设置：
 
 ```json
 {
@@ -363,18 +388,6 @@ create policy "todos: own rows only" on public.todos
 Node 版本由 `package.json` 的 `engines.node`（`>=22.12.0`）声明——Vite 8 要求 `^20.19.0 || >=22.12.0`，
 Vercel 会自动挑满足条件的版本；不使用 `packageManager` 字段，Vercel 依据 `pnpm-lock.yaml`（lockfileVersion 9.0）自动选 pnpm。
 
-### 环境变量（必须，构建期注入）
-
-Vite 的 `VITE_*` 是**构建时内联**的，所以变量要在 Vercel 项目里配好再构建（改完要重新 Deploy 才生效）：
-
-| 变量                     | 用途                     | 不配的后果                                           |
-| ------------------------ | ------------------------ | ---------------------------------------------------- |
-| `VITE_AMAP_KEY`          | 高德「Web 服务」Key      | 天气卡显示"未配置 Key"的引导                         |
-| `VITE_SUPABASE_URL`      | Supabase Project URL     | 应用进入**本地模式**（不登录、不同步，其余功能照常） |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon public key | 同上（anon key 是公开的，真正的权限在数据库 RLS）    |
-
-### 步骤
-
 1. 把仓库推到 GitHub（本仓库根即 `vue3-smart-workspace/`），Vercel → **Add New → Project → Import** 该仓库
 2. Framework 会自动识别为 Vite；确认 Build Command = `pnpm build`、Output Directory = `dist`
 3. 展开 **Environment Variables**，把上表三个变量填进去（Production / Preview 都勾上更省事）
@@ -384,6 +397,21 @@ Vite 的 `VITE_*` 是**构建时内联**的，所以变量要在 Vercel 项目�
 
 > 不想接 GitHub 也可以走 CLI：`pnpm dlx vercel`（首次会引导登录并创建项目）→ `pnpm dlx vercel --prod`，
 > 环境变量用 `pnpm dlx vercel env add VITE_AMAP_KEY` 逐个添加。代价是每次更新都要本地手动发一次。
+
+### 步骤（Cloudflare Pages / Netlify）
+
+两者都不用手机号，导入 GitHub 仓库后按下表填（配置大部分已在仓库里）：
+
+| 项目                   | Cloudflare Pages                           | Netlify                                    |
+| ---------------------- | ------------------------------------------ | ------------------------------------------ |
+| Build command          | `pnpm build`                               | 读 `netlify.toml`（`pnpm build`）          |
+| Build output directory | `dist`                                     | 读 `netlify.toml`（`dist`）                |
+| Node 版本              | 环境变量 `NODE_VERSION=22`                 | `netlify.toml` 里已写 `NODE_VERSION=22`    |
+| SPA 回退               | `public/_redirects`（构建时复制到 `dist`） | `netlify.toml` 的 redirects + `_redirects` |
+| 环境变量               | Settings → Environment variables           | Site settings → Environment variables      |
+
+部署完拿到的是 `https://<项目名>.pages.dev` 或 `https://<项目名>.netlify.app`，
+**同样要回 Supabase 把这两个域名加进 Redirect URLs**（否则登录回跳会失败）。
 
 ### 上线后的自检清单
 

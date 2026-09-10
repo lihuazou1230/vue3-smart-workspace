@@ -4,3 +4,6 @@ coverage
 pnpm-lock.yaml
 src/components.d.ts
 src/auto-imports.d.ts
+# 平台部署配置：prettier 认不出 toml 与无扩展名文件，会直接报错中断 `pnpm format`
+netlify.toml
+public/_redirects
