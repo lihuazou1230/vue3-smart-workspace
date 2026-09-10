@@ -24,3 +24,50 @@ export function isValidDateKey(dateKey: string): boolean {
   const date = new Date(y, m - 1, d)
   return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d
 }
+
+// ---- 登录 / 注册表单校验（第五阶段） ----
+
+/** 密码最短长度（与 Supabase Auth 的默认要求一致） */
+export const PASSWORD_MIN_LENGTH = 6
+
+/** 展示名长度上限 */
+export const DISPLAY_NAME_MAX_LENGTH = 20
+
+/**
+ * 邮箱校验。
+ * 刻意保持宽松：真实合法性最终由后端（Supabase）判定，
+ * 前端只挡明显写错的输入（缺 @、域名没点、带空格），避免把合法邮箱拦在门外。
+ */
+export function validateEmail(email: string): ValidationResult {
+  const value = email.trim()
+  if (!value) return { valid: false, message: '请输入邮箱' }
+  if (/\s/.test(value)) return { valid: false, message: '邮箱不能包含空格' }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return { valid: false, message: '邮箱格式不正确' }
+  return { valid: true }
+}
+
+/** 密码校验：至少 6 位 */
+export function validatePassword(password: string): ValidationResult {
+  if (!password) return { valid: false, message: '请输入密码' }
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return { valid: false, message: `密码至少 ${PASSWORD_MIN_LENGTH} 位` }
+  }
+  return { valid: true }
+}
+
+/** 确认密码校验 */
+export function validatePasswordConfirm(password: string, confirm: string): ValidationResult {
+  if (!confirm) return { valid: false, message: '请再次输入密码' }
+  if (password !== confirm) return { valid: false, message: '两次输入的密码不一致' }
+  return { valid: true }
+}
+
+/** 展示名校验：可留空（留空时用邮箱前缀），填了不能超长 */
+export function validateDisplayName(name: string): ValidationResult {
+  const value = name.trim()
+  if (!value) return { valid: true }
+  if (value.length > DISPLAY_NAME_MAX_LENGTH) {
+    return { valid: false, message: `昵称不能超过 ${DISPLAY_NAME_MAX_LENGTH} 个字符` }
+  }
+  return { valid: true }
+}
